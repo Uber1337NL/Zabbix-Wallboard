@@ -12,7 +12,6 @@ session_start([
     'use_strict_mode' => true
 ]);
 
-require_once 'config.php';
 require_once 'classes/RemoteData_Zabbix.php';
 require_once 'classes/Wallboard.php';
 require_once 'classes/ExceptionHandler.php';
@@ -72,10 +71,10 @@ if ($groupId !== null) {
     } else {
         $validGroupIds = array_column($hostgroups, 'groupid');
         $filteredIds = array_intersect($groupId, $validGroupIds);
-        
+
         if (!empty($filteredIds)) {
             $_SESSION['groupid'] = $filteredIds;
-            $_SESSION['group_name'] = count($filteredIds) > 1 ? 'Filtered' : 
+            $_SESSION['group_name'] = count($filteredIds) > 1 ? 'Filtered' :
                 $hostgroups[array_search($filteredIds[0], $validGroupIds)]['name'];
             $config['TRIGGER_SEARCH_PARAMS']['groupids'] = $filteredIds;
         }
@@ -114,7 +113,7 @@ $wallboard = new Wallboard($config['SCRIPT_PATH'], $config['DISPLAY']);
 $action = validateInput('action');
 if ($action) {
     $csrfToken = validateInput('csrf_token');
-    
+
     if (!in_array($action, ['login', 'details'], true) && !$wallboard->verifyCsrfToken($csrfToken)) {
         throw new Exception('Invalid CSRF token', 100);
     }
@@ -132,7 +131,7 @@ if ($action) {
         case 'add_acknowledge':
             $eventId = validateInput('eventid', 'int');
             $ackMsg = validateInput('ack_msg');
-            
+
             if ($eventId && $ackMsg && isset($_SESSION['username'])) {
                 $backendZbx->addAcknowledge((string)$eventId, $ackMsg);
                 header('Location: ' . $wallboard->generateScriptPath());
@@ -143,12 +142,12 @@ if ($action) {
         case 'login':
             $username = validateInput('username');
             $password = $_POST['password'] ?? '';
-            
+
             if ($username && $password) {
                 $_SESSION['username'] = $username;
                 $_SESSION['iv'] = random_bytes(16);
                 $_SESSION['encryption_key'] = random_bytes(32);
-                
+
                 $encrypted = openssl_encrypt(
                     $password,
                     'aes-256-gcm',
@@ -157,10 +156,10 @@ if ($action) {
                     $_SESSION['iv'],
                     $tag
                 );
-                
+
                 $_SESSION['encrypted_password'] = $encrypted;
                 $_SESSION['tag'] = $tag;
-                
+
                 header('Location: ' . $wallboard->generateScriptPath());
                 exit;
             }
@@ -175,10 +174,10 @@ if ($action) {
             throw new Exception('Unknown action', 100);
     }
 } else {
-    $triggers = $config['ZABBIX']['ENABLED'] 
-        ? $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS']) 
+    $triggers = $config['ZABBIX']['ENABLED']
+        ? $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS'])
         : [];
-    
+
     $wallboard->generateMainContent($triggers);
 }
 
