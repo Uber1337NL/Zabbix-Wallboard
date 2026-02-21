@@ -124,6 +124,9 @@ class Wallboard
 
         for ($i = 0; $i < min($this->problemCountShow, count($triggers)); $i++) {
             $trigger = $triggers[$i];
+            if (!is_array($trigger)) {
+               continue;
+            }
             $isMaintenance = $this->isInMaintenance($trigger);
             $isAcknowledged = $this->isAcknowledged($trigger);
 
@@ -446,6 +449,8 @@ class Wallboard
             <meta http-equiv='Content-Security-Policy' content='%s'>\n
             <link href='css/metro.min.css' rel='stylesheet'>\n
             <link href='css/metro-icons.min.css' rel='stylesheet'>\n
+            <link href='css/metro-responsive.min.css' rel='stylesheet'>\n
+            <link href='css/metro-schema.min.css' rel='stylesheet'>\n˜
             <link href='css/style.css' rel='stylesheet'>\n
             <script src='js/jquery-3.7.0.min.js'></script>\n
             <script src='js/metro.min.js'></script>\n
