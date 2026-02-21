@@ -1,46 +1,209 @@
+/**
+ * Zabbix Wallboard Custom Styles
+ * Version: 2.0.0
+ */
+
+/* Base Layout */
 body {
-	overflow:hidden;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+/* Date Display */
 .date {
-	font-size: 0.75em;
+    font-size: 0.75em;
+    color: #666;
 }
 
+/* Dialog Content */
 .dialog_details_content {
-	overflow: auto;
-	width: 100%;
-	height: 100%;
-	padding: 10px;
+    overflow: auto;
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    box-sizing: border-box;
 }
 
 .dialog_details_content form {
-	margin-top: 40px;
+    margin-top: 40px;
 }
 
+/* Text Enhancements */
 .text-shadow {
-/*	text-shadow: 0 0 0.5em #000000, 0 0 0.5em #000000, 0 0 0.5em #000000;
-	text-shadow: -5px 0 black, 0 5px black, 5px 0 black, 0 -5px black; */
-	-webkit-font-smoothing: antialiased;
-	font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-smooth: antialiased;
 }
 
 .text-default-small {
-	/* default 0.875rem */
-	font-size: 0.6rem;
+    font-size: 0.6rem;
+    line-height: 1.4;
 }
 
 .text-accent-small {
-	/* default 1.1rem */
-	font-size: 0.8rem;
+    font-size: 0.8rem;
+    line-height: 1.3;
 }
 
+.text-default {
+    line-height: 1.5;
+}
+
+.text-accent {
+    line-height: 1.4;
+}
+
+/* Utility Classes */
 .hidden {
-	display: none;
+    display: none !important;
 }
 
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Menu Scrolling */
 .menu-scroll {
-	overflow:auto;
-	overflow-x: hidden;
-	height:auto;
-	max-height:75vh;
+    overflow: auto;
+    overflow-x: hidden;
+    height: auto;
+    max-height: 75vh;
+    scrollbar-width: thin;
+}
+
+.menu-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.menu-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.menu-scroll::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.menu-scroll::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Tile Enhancements */
+.tile-wide {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    will-change: transform;
+}
+
+.tile-wide:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.tile-wide:active {
+    transform: translateY(0);
+}
+
+/* Loading States */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Error Messages */
+.error-message {
+    color: #d32f2f;
+    padding: 10px;
+    margin: 10px 0;
+    border-left: 4px solid #d32f2f;
+    background-color: #ffebee;
+}
+
+/* Accessibility */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 100;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Performance Optimizations */
+.tile-content {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+/* Print Styles */
+@media print {
+    body {
+        overflow: visible;
+    }
+    
+    .app-bar,
+    .dialog {
+        display: none;
+    }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .menu-scroll {
+        max-height: 60vh;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tile-wide,
+    .loading::after {
+        animation: none;
+        transition: none;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .dialog_details_content {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+    }
+    
+    .error-message {
+        background-color: #5d1f1f;
+        color: #ffcdd2;
+    }
 }

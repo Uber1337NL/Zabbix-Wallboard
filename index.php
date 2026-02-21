@@ -1,222 +1,186 @@
 <?php
-ini_set('display_errors',0);
-#ini_set('memcached.sess_prefix','memc.sess.' . $_SERVER["SCRIPT_NAME"] . '.');
 
-//=================================================================== Session
-session_start();
+declare(strict_types=1);
 
-//=================================================================== Includes
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
+session_start([
+    'cookie_httponly' => true,
+    'cookie_secure' => isset($_SERVER['HTTPS']),
+    'cookie_samesite' => 'Strict',
+    'use_strict_mode' => true
+]);
+
 require_once 'config.php';
 require_once 'classes/RemoteData_Zabbix.php';
 require_once 'classes/Wallboard.php';
 require_once 'classes/ExceptionHandler.php';
 
-//=================================================================== Some config logic
-$CONFIG['SCRIPT_PATH'] = $CONFIG['REVERSE_PROXY_PATH'] . $_SERVER['SCRIPT_NAME'];
+$config = require 'config.php';
+$config['SCRIPT_PATH'] = ($config['REVERSE_PROXY_PATH'] ?? '') . ($_SERVER['SCRIPT_NAME'] ?? '');
 
-//=================================================================== Exception Handler
-$EXCEPTION_HANDLER = new ExceptionHandler();
-set_exception_handler([$EXCEPTION_HANDLER, 'error']);
+$exceptionHandler = new ExceptionHandler();
+set_exception_handler([$exceptionHandler, 'error']);
 
-//=================================================================== Read login credentials
-if (isset($_SESSION["password"])) {
-	if (isset($_SESSION["username"])) {
-		$CONFIG['ZABBIX']['USERNAME'] = $_SESSION["username"];
-		$CONFIG['ZABBIX']['PASSWORD'] = openssl_decrypt($_SESSION["password"],'aes-256-cbc',$_COOKIE["zbxwallboard_pw_crypt_key"],OPENSSL_RAW_DATA,$iv=$_SESSION["iv"]);
-	}
+function validateInput(string $key, string $type = 'string', $default = null)
+{
+    if (!isset($_GET[$key]) && !isset($_POST[$key])) {
+        return $default;
+    }
+
+    $value = $_GET[$key] ?? $_POST[$key];
+
+    switch ($type) {
+        case 'int':
+            return filter_var($value, FILTER_VALIDATE_INT) !== false ? (int)$value : $default;
+        case 'array':
+            return is_array($value) ? array_map('intval', $value) : $default;
+        case 'bool':
+            return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+        default:
+            return is_string($value) ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $default;
+    }
 }
 
-//=================================================================== API Data
-if ($CONFIG['ZABBIX']['ENABLED']) {
-	$BACKEND_ZBX = new RemoteData_Zabbix($CONFIG['ZABBIX']['URL'],$CONFIG['ZABBIX']['USERNAME'],$CONFIG['ZABBIX']['PASSWORD'],$CONFIG['ZABBIX']['BASIC_AUTH']);
-	$HOSTGROUPS = $BACKEND_ZBX->get_hostgroups($CONFIG['HOSTGROUP_SEARCH_PARAMS']);
-}
-else {
-	$HOSTGROUPS = [];
-}
-
-//=================================================================== Request Hostgroup, Severity and Display Options
-// Hostgroup Filtering
-if (isset($_GET['groupid'])) {
-	if (is_numeric($_GET['groupid'])) {
-		if ($_GET['groupid'] === 'all') {
-			if (isset($_SESSION['groupid'])) {
-				unset($_SESSION["groupid"]);
-				unset($_SESSION["group_name"]);
-			}
-		}
-		else {
-			$HG_INDEX = array_search($_GET['groupid'],array_column($HOSTGROUPS, 'groupid'));
-			if ($HG_INDEX !== NULL) {
-				$CONFIG['TRIGGER_SEARCH_PARAMS']['groupids'] = $_GET['groupid'];
-				$_SESSION['group_name'] = $HOSTGROUPS[$HG_INDEX]['name'];
-				$_SESSION['groupid'] = $_GET['groupid'];
-			}
-		}
-	}
-	elseif (is_array($_GET['groupid'])) {
-		if (in_array('all',$_GET['groupid'])) {
-			if (isset($_SESSION['groupid'])) {
-				unset($_SESSION["groupid"]);
-				unset($_SESSION["group_name"]);
-			}
-		}
-		else {
-			$CONFIG['TRIGGER_SEARCH_PARAMS']['groupids'] = [];
-			foreach ($_GET['groupid'] as $groupid) {
-				if (is_numeric($groupid)) {
-					$HG_INDEX = array_search($groupid,array_column($HOSTGROUPS, 'groupid'));
-					if ($HG_INDEX !== NULL) {
-						$CONFIG['TRIGGER_SEARCH_PARAMS']['groupids'][] = $groupid;
-						$_SESSION['group_name'] = 'Filtered';
-						$_SESSION['groupid'] = $CONFIG['TRIGGER_SEARCH_PARAMS']['groupids'];
-					}
-				}
-			}
-		}
-	}
-}
-elseif (isset($_SESSION['groupid'])) {
-	if (is_numeric($_SESSION['groupid'])) {
-		$HG_INDEX = array_search($_SESSION['groupid'],array_column($HOSTGROUPS, 'groupid'));
-		if ($HG_INDEX !== NULL) {
-			$CONFIG['TRIGGER_SEARCH_PARAMS']['groupids'] = $_SESSION['groupid'];
-		}
-	}
-	elseif (is_array($_SESSION['groupid'])) {
-		$CONFIG['TRIGGER_SEARCH_PARAMS']['groupids'] = [];
-		foreach ($_SESSION['groupid'] as $groupid) {
-			$HG_INDEX = array_search($groupid,array_column($HOSTGROUPS, 'groupid'));
-			if ($HG_INDEX !== NULL) {
-				$CONFIG['TRIGGER_SEARCH_PARAMS']['groupids'][] = $groupid;
-			}
-		}
-	}
+if (isset($_SESSION['encrypted_password']) && isset($_SESSION['username']) && isset($_SESSION['encryption_key'])) {
+    $encKey = $_SESSION['encryption_key'];
+    $iv = $_SESSION['iv'];
+    $config['ZABBIX']['USERNAME'] = $_SESSION['username'];
+    $config['ZABBIX']['PASSWORD'] = openssl_decrypt(
+        $_SESSION['encrypted_password'],
+        'aes-256-gcm',
+        $encKey,
+        OPENSSL_RAW_DATA,
+        $iv,
+        $_SESSION['tag']
+    );
 }
 
-// Severity Filtering
-if (isset($_GET['severity'])) {
-	if (isset($CONFIG['SEVERITIES'][$_GET['severity']])) {
-		$CONFIG['TRIGGER_SEARCH_PARAMS']['min_severity'] = $_GET['severity'];
-		$_SESSION['severity'] = $_GET['severity'];
-		$_SESSION['severity_name'] = $CONFIG['SEVERITIES'][$_GET['severity']];
-	}
-}
-elseif (isset($_SESSION['severity'])) {
-	if (isset($CONFIG['SEVERITIES'][$_SESSION['severity']])) {
-		$CONFIG['TRIGGER_SEARCH_PARAMS']['min_severity'] = $_SESSION['severity'];
-	}
+$backendZbx = null;
+$hostgroups = [];
+
+if ($config['ZABBIX']['ENABLED']) {
+    $backendZbx = new RemoteData_Zabbix($config['ZABBIX']);
+    $hostgroups = $backendZbx->getHostgroups($config['HOSTGROUP_SEARCH_PARAMS']);
 }
 
-// Hide Acknowledged
-if (isset($_GET['hide_acked'])) {
-	if ($_GET['hide_acked'] === "1") {
-		$CONFIG['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = True;
-		$_SESSION['hide_acked'] = True;
-	}
-	elseif ($_GET['hide_acked'] === "0") {
-		$CONFIG['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = NULL;
-		$_SESSION['hide_acked'] = NULL;
-	}
-}
-elseif (isset($_SESSION['hide_acked'])) {
-	$CONFIG['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = $_SESSION['hide_acked'];
-}
-
-// Hide Maintenance
-if (isset($_GET['hide_maint'])) {
-	if ($_GET['hide_maint'] === "1") {
-		$CONFIG['TRIGGER_SEARCH_PARAMS']['maintenance'] = False;
-		$_SESSION['hide_maint'] = False;
-	}
-	elseif ($_GET['hide_maint'] === "0") {
-		$CONFIG['TRIGGER_SEARCH_PARAMS']['maintenance'] = NULL;
-		$_SESSION['hide_maint'] = NULL;
-	}
-}
-elseif (isset($_SESSION['hide_maint'])) {
-	$CONFIG['TRIGGER_SEARCH_PARAMS']['maintenance'] = $_SESSION['hide_maint'];
+$groupId = validateInput('groupid', 'array');
+if ($groupId !== null) {
+    if (in_array('all', $groupId, true)) {
+        unset($_SESSION['groupid'], $_SESSION['group_name']);
+    } else {
+        $validGroupIds = array_column($hostgroups, 'groupid');
+        $filteredIds = array_intersect($groupId, $validGroupIds);
+        
+        if (!empty($filteredIds)) {
+            $_SESSION['groupid'] = $filteredIds;
+            $_SESSION['group_name'] = count($filteredIds) > 1 ? 'Filtered' : 
+                $hostgroups[array_search($filteredIds[0], $validGroupIds)]['name'];
+            $config['TRIGGER_SEARCH_PARAMS']['groupids'] = $filteredIds;
+        }
+    }
+} elseif (isset($_SESSION['groupid'])) {
+    $config['TRIGGER_SEARCH_PARAMS']['groupids'] = $_SESSION['groupid'];
 }
 
-//=================================================================== Create Wallboard
-$WALLBOARD = new Wallboard($CONFIG['SCRIPT_PATH'],$CONFIG['DISPLAY']);
-
-//=================================================================== Create Main Content
-if (isset($_REQUEST["action"])) {
-	switch ($_REQUEST["action"]) {
-		case 'details':
-			if (isset($_REQUEST["eventid"])) {
-				if (is_numeric($_REQUEST["eventid"])) {
-					$CONFIG['EVENT_SEARCH_PARAMS']['eventids'] = $_REQUEST["eventid"];
-					$DETAILS = $BACKEND_ZBX->get_eventdetails($CONFIG['EVENT_SEARCH_PARAMS']);
-					$WALLBOARD->ajax_event_details($DETAILS);
-				}
-			}
-			break;
-		case 'add_acknowledge':
-			if (isset($_REQUEST["eventid"])) {
-				if (isset($_REQUEST["ack_msg"])) {
-					if (is_numeric($_REQUEST["eventid"]) && (is_string($_REQUEST["ack_msg"]))) {
-						if (isset($_SESSION["username"])) {
-							$BACKEND_ZBX->add_acknowledge($_REQUEST["eventid"],$_REQUEST["ack_msg"]);
-							header('Location: ' . $WALLBOARD->gen_script_path());
-							exit;
-						}
-					}
-				}
-			}
-			break;
-		case 'login':
-			if (isset($_REQUEST["username"])) {
-				if (isset($_REQUEST["password"])) {
-					$_SESSION["username"] = $_REQUEST["username"];
-					$_SESSION["iv"] = openssl_random_pseudo_bytes(16);
-					$ENC_KEY = bin2hex(openssl_random_pseudo_bytes(16));
-					$_SESSION["password"] = openssl_encrypt($_REQUEST["password"],'aes-256-cbc',$ENC_KEY,OPENSSL_RAW_DATA,$iv=$_SESSION["iv"]);
-					setcookie('zbxwallboard_pw_crypt_key',$ENC_KEY);
-
-					header('Location: ' . $WALLBOARD->gen_script_path());
-					exit;
-				}
-			}
-			break;
-		case 'logout':
-			if (isset($_COOKIE["zbxwallboard_pw_crypt_key"])) {
-				unset($_COOKIE["zbxwallboard_pw_crypt_key"]);
-				setcookie('zbxwallboard_pw_crypt_key', null, -1, '/');
-			}
-			session_destroy();
-			header('Location: ' . $WALLBOARD->gen_script_path());
-			break;
-		default:
-			throw new Exception('Unknown action',100);
-	}
-}
-else {
-	$TRIGGERS_ZBX = [];
-
-	if ($CONFIG['ZABBIX']['ENABLED']) {
-		$TRIGGERS_ZBX = $BACKEND_ZBX->get_triggers($CONFIG['TRIGGER_SEARCH_PARAMS']);
-		if (count($TRIGGERS_ZBX) === 1) {
-			if ($TRIGGERS_ZBX[0] === false) {
-				$TRIGGERS_ZBX = [];
-			}
-		}
-	}
-
-	$WALLBOARD->gen_main_content($TRIGGERS_ZBX);
+$severity = validateInput('severity', 'int');
+if ($severity !== null && isset($config['SEVERITIES'][$severity])) {
+    $_SESSION['severity'] = $severity;
+    $_SESSION['severity_name'] = $config['SEVERITIES'][$severity];
+    $config['TRIGGER_SEARCH_PARAMS']['min_severity'] = $severity;
+} elseif (isset($_SESSION['severity'])) {
+    $config['TRIGGER_SEARCH_PARAMS']['min_severity'] = $_SESSION['severity'];
 }
 
-//=================================================================== Create Menu
-$WALLBOARD->gen_menu($HOSTGROUPS,$CONFIG['SEVERITIES']);
+$hideAcked = validateInput('hide_acked', 'bool');
+if ($hideAcked !== null) {
+    $_SESSION['hide_acked'] = $hideAcked;
+    $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = $hideAcked;
+} elseif (isset($_SESSION['hide_acked'])) {
+    $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = $_SESSION['hide_acked'];
+}
 
-//=================================================================== Finish
-$WALLBOARD->publish_content();
+$hideMaint = validateInput('hide_maint', 'bool');
+if ($hideMaint !== null) {
+    $_SESSION['hide_maint'] = $hideMaint;
+    $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = !$hideMaint;
+} elseif (isset($_SESSION['hide_maint'])) {
+    $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = !$_SESSION['hide_maint'];
+}
 
-/*
-echo "<pre>";
-var_dump($_SESSION);
-var_dump($_REQUEST);
-var_dump($CONFIG['TRIGGER_SEARCH_PARAMS']['groupids']);
-echo "</pre>";
-*/
+$wallboard = new Wallboard($config['SCRIPT_PATH'], $config['DISPLAY']);
+
+$action = validateInput('action');
+if ($action) {
+    $csrfToken = validateInput('csrf_token');
+    
+    if (!in_array($action, ['login', 'details'], true) && !$wallboard->verifyCsrfToken($csrfToken)) {
+        throw new Exception('Invalid CSRF token', 100);
+    }
+
+    switch ($action) {
+        case 'details':
+            $eventId = validateInput('eventid', 'int');
+            if ($eventId) {
+                $config['EVENT_SEARCH_PARAMS']['eventids'] = $eventId;
+                $details = $backendZbx->getEventDetails($config['EVENT_SEARCH_PARAMS']);
+                $wallboard->ajaxEventDetails($details);
+            }
+            break;
+
+        case 'add_acknowledge':
+            $eventId = validateInput('eventid', 'int');
+            $ackMsg = validateInput('ack_msg');
+            
+            if ($eventId && $ackMsg && isset($_SESSION['username'])) {
+                $backendZbx->addAcknowledge((string)$eventId, $ackMsg);
+                header('Location: ' . $wallboard->generateScriptPath());
+                exit;
+            }
+            break;
+
+        case 'login':
+            $username = validateInput('username');
+            $password = $_POST['password'] ?? '';
+            
+            if ($username && $password) {
+                $_SESSION['username'] = $username;
+                $_SESSION['iv'] = random_bytes(16);
+                $_SESSION['encryption_key'] = random_bytes(32);
+                
+                $encrypted = openssl_encrypt(
+                    $password,
+                    'aes-256-gcm',
+                    $_SESSION['encryption_key'],
+                    OPENSSL_RAW_DATA,
+                    $_SESSION['iv'],
+                    $tag
+                );
+                
+                $_SESSION['encrypted_password'] = $encrypted;
+                $_SESSION['tag'] = $tag;
+                
+                header('Location: ' . $wallboard->generateScriptPath());
+                exit;
+            }
+            break;
+
+        case 'logout':
+            session_destroy();
+            header('Location: ' . $wallboard->generateScriptPath());
+            exit;
+
+        default:
+            throw new Exception('Unknown action', 100);
+    }
+} else {
+    $triggers = $config['ZABBIX']['ENABLED'] 
+        ? $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS']) 
+        : [];
+    
+    $wallboard->generateMainContent($triggers);
+}
+
+$wallboard->generateMenu($hostgroups, $config['SEVERITIES']);
+$wallboard->publish();
