@@ -75,7 +75,7 @@ The application supports three methods for setting environment variables:
 #### Required Variables
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+| -------- | ----------- | ------- |
 | `ZABBIX_URL` | Full URL to Zabbix API endpoint | `https://zabbix.example.com/api_jsonrpc.php` |
 | `ZABBIX_USERNAME` | Zabbix API user | `zbxwallboard` |
 | `ZABBIX_PASSWORD` | Zabbix API password | `SuperSecretPass123` |
@@ -641,7 +641,7 @@ MIT License - See LICENSE file for details
 ## Credits
 
 - Original Author: Uber1337NL
-- Contributors: dranktaxi.nl en thuisbezorgd.nl :-) 
+- Contributors: dranktaxi.nl en thuisbezorgd.nl :-)
 - Built with: PHP, jQuery, Zabbix API
 
 ---
