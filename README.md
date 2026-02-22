@@ -295,7 +295,6 @@ return [
         'USERNAME' => $_ENV['ZABBIX_USERNAME'] ?? '',
         'PASSWORD' => $_ENV['ZABBIX_PASSWORD'] ?? '',
         'BASIC_AUTH' => (bool)($_ENV['ZABBIX_BASIC_AUTH'] ?? false),
-        'ENABLED' => true,
         'VERIFY_SSL' => true,
         'TIMEOUT' => 30,
         'CONNECT_TIMEOUT' => 5
@@ -317,11 +316,12 @@ Edit `config.php` to customize:
 
 ```php
 'DISPLAY' => [
-    'TITLE' => 'Zabbix Wallboard',           // Page title
+    'TITLE' => 'Zabbix Wallboard',            // Page title
     'PROBLEM_COUNT_SHOW' => 0,                // Max problems to show (0 = unlimited)
-    'LUNCH_REMINDER' => true,                  // Enable lunch reminder
-    'LUNCH_REMINDER_START' => 1200,            // 12:00 PM
-    'LUNCH_REMINDER_END' => 1230               // 12:30 PM
+    'LUNCH_REMINDERS' => [                    // Now an array for multiple breaks and shifts
+        ['start' => 1200, 'end' => 1230],     // Obvious. Break starts at 1200 and stops at 1230
+        ['start' => 1730, 'end' => 1800],     // Keep in mind. The break logo with cutlery is onli
+    ]                                         // Visible is there are no problems to display.
 ],
 
 'SESSION' => [
@@ -426,17 +426,6 @@ Navigate to: `http://wallboard.example.com`
 #### Logout
 
 - Click "Logout (username)" in the menu
-
-### Auto-Refresh
-
-Add JavaScript to enable auto-refresh (in `wallboard.js`):
-
-```javascript
-// Auto-refresh every 60 seconds
-setTimeout(function() {
-    location.reload();
-}, 60000);
-```
 
 ## Changelog
 
@@ -631,20 +620,18 @@ Zabbix API handles this internally, no configuration needed.
 For issues, questions, or contributions:
 
 - **Issues**: GitHub Issues
-- **Email**: <support@example.com>
-- **Documentation**: <https://docs.example.com>
+- **Documentation**: This README file.
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License
 
 ## Credits
 
 - Original Author: Uber1337NL
-- Contributors: dranktaxi.nl en thuisbezorgd.nl :-)
+- Contributors: dranktaxi.nl en thuisbezorgd.nl
 - Built with: PHP, jQuery, Zabbix API
 
 ---
-
 **Last Updated**: 2026-02-22
-**Version**: 2.0.0-alpha1
+**Version**: 2.0.1
