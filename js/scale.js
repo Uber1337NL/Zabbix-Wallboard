@@ -2,9 +2,8 @@
  * js/scale.js
  * Handles dynamic scaling of the Zabbix Wallboard grid.
  *
- * Safe, non-recursive structure:
- * - defines $.fn.scaledgrid (sets up resize behavior for a container)
- * - uses a separate document-ready initializer with retry logic
+ * - Defines $.fn.scaledgrid which sets up resize behaviour for #wallboard-grid
+ * - A small initializer tries to attach the plugin (with retries)
  */
 
 (function ($) {
@@ -24,7 +23,6 @@
             container.css('min-height', windowHeight + 'px');
 
             if (!tiles.length) {
-                // nothing to do
                 return this;
             }
 
@@ -72,10 +70,10 @@
             return this;
         };
 
-        // Attach resize handler once per container
+        // Attach resize handler once (namespaced)
         $(window).off('resize.scaledgrid').on('resize.scaledgrid', resize);
 
-        // run immediately to size correctly now
+        // Run immediately to size correctly now
         resize();
 
         return this;
