@@ -1,113 +1,90 @@
 /**
  * js/scale.js
- * Handles dynamic scaling of the Zabbix Wallboard grid.
- *
- * - Defines $.fn.scaledgrid which sets up resize behaviour for #wallboard-grid
- * - A small initializer tries to attach the plugin (with retries)
+ * Dynamic scaling for Zabbix Wallboard.
+ * Optimizes tile sizes based on count to fill the screen.
  */
 
 (function ($) {
     'use strict';
 
-    // Plugin: attach scaling behaviour to a container
     $.fn.scaledgrid = function () {
         const container = $(this);
         if (!container.length) return this;
 
-        const resize = () => {
-            const appBarHeight = $('.app-bar').outerHeight() || 0;
-            const windowHeight = $(window).height() - appBarHeight;
-            const tiles = container.find('.tile-wide:visible');
+        const ns = '.scaledgrid';
 
-            // Ensure container takes available height even when there are no tiles
-            container.css('min-height', windowHeight + 'px');
-
-            if (!tiles.length) {
-                return this;
-            }
-
-            if (tiles.length === 1) {
-                // Single tile: make it occupy the viewport height
-                container.css({
-                    display: 'block',
-                    'text-align': 'center'
-                });
-                tiles.css({
-                    width: '100%',
-                    height: windowHeight + 'px',
-                    'max-width': 'none',
-                    'max-height': 'none',
-                    margin: '0 auto',
-                    'font-size': '2.5rem',
-                    display: 'flex',
-                    'flex-direction': 'column',
-                    'justify-content': 'center',
-                    'align-items': 'center'
-                });
-            } else {
-                // Multiple tiles: reset any per-tile inline styles and use flex layout
-                container.css({
-                    display: 'flex',
-                    'flex-wrap': 'wrap',
-                    'align-content': 'flex-start',
-                    'justify-content': 'center'
-                });
-
-                tiles.css({
-                    width: '',
-                    height: '',
-                    'max-width': '',
-                    'max-height': '',
-                    margin: '',
-                    'font-size': '',
-                    display: '',
-                    'flex-direction': '',
-                    'justify-content': '',
-                    'align-items': ''
-                });
-            }
-
-            return this;
+        const getAppBarHeight = () => {
+            const appBar = $('.app-bar');
+            return appBar.length ? (appBar.outerHeight() || 50) : 50;
         };
 
-        // Attach resize handler once (namespaced)
-        $(window).off('resize.scaledgrid').on('resize.scaledgrid', resize);
+        const resize = () => {
+            const appBarHeight = getAppBarHeight();
+            const windowHeight = Math.max(window.innerHeight - appBarHeight, 0);
+            const windowWidth = window.innerWidth;
+            const tiles = container.find('.tile-wide:visible');
+            const count = tiles.length;
 
-        // Run immediately to size correctly now
+            container.css({
+                height: windowHeight + 'px',
+                minHeight: windowHeight + 'px',
+                display: 'flex',
+                'flex-wrap': 'wrap',
+                'align-items': 'center',
+                'justify-content': 'center',
+                padding: '10px',
+                overflow: 'hidden'
+            });
+
+            if (!count) return;
+
+            // Reset styles first
+            tiles.css({
+                width: '', height: '', margin: '5px', fontSize: '',
+                display: 'flex', flexDirection: 'column',
+                justifyContent: 'center', alignItems: 'center',
+                maxWidth: 'none', maxHeight: 'none'
+            });
+
+            if (count === 1) {
+                tiles.css({ width: '100%', height: '100%', margin: '0' });
+                tiles.find('.text-accent').css('font-size', '12vh');
+                tiles.find('.text-default').css('font-size', '5vh');
+            } 
+            else if (count === 2) {
+                // Twee tegels naast elkaar
+                tiles.css({ width: 'calc(50% - 20px)', height: '90%' });
+                tiles.find('.text-accent').css('font-size', '8vh');
+                tiles.find('.text-default').css('font-size', '4vh');
+            }
+            else if (count <= 4) {
+                // 2x2 grid
+                tiles.css({ width: 'calc(50% - 20px)', height: 'calc(50% - 20px)' });
+                tiles.find('.text-accent').css('font-size', '6vh');
+                tiles.find('.text-default').css('font-size', '3vh');
+            }
+            else {
+                // Meer dan 4: standaard grid maar groter dan voorheen
+                tiles.css({ width: 'calc(33.33% - 20px)', height: 'calc(33.33% - 20px)' });
+                tiles.find('.text-accent').css('font-size', '4vh');
+                tiles.find('.text-default').css('font-size', '2vh');
+            }
+        };
+
+        $(window).off('resize' + ns).on('resize' + ns, resize);
+        
+        const observer = new MutationObserver(() => {
+            clearTimeout(container.data('timer'));
+            container.data('timer', setTimeout(resize, 100));
+        });
+        observer.observe(container.get(0), { childList: true });
+
         resize();
-
         return this;
     };
 
-    // Document ready: try to initialize the grid; retry a few times if tiles aren't present yet
     $(function () {
-        let retries = 0;
-        const maxRetries = 12;
-        const retryDelay = 200; // ms
-
-        const tryInit = () => {
-            const grid = $('#wallboard-grid');
-            if (grid.length && grid.find('.tile-wide').length > 0) {
-                grid.scaledgrid();
-                console.log('scaledgrid: Initialized on #wallboard-grid');
-                return;
-            }
-
-            if (retries < maxRetries) {
-                retries++;
-                setTimeout(tryInit, retryDelay);
-                return;
-            }
-
-            // final attempt even if there are no tiles (ensures container min-height set)
-            if (grid.length) {
-                grid.scaledgrid();
-                console.log('scaledgrid: Initialized on #wallboard-grid (no tiles found)');
-            } else {
-                console.log('scaledgrid: #wallboard-grid not found in DOM');
-            }
-        };
-
-        tryInit();
+        const grid = $('#wallboard-grid');
+        if (grid.length) grid.scaledgrid();
     });
 })(jQuery);

@@ -17,10 +17,11 @@ return [
 
     'DISPLAY' => [
         'TITLE' => 'Zabbix Wallboard',
-        'PROBLEM_COUNT_SHOW' => 0, // 0 = Toon alle problemen, vul het scherm
-        'LUNCH_REMINDER' => true,
-        'LUNCH_REMINDER_START' => 1200,
-        'LUNCH_REMINDER_END' => 1230
+        'PROBLEM_COUNT_SHOW' => 0,
+        'LUNCH_REMINDERS' => [
+            ['start' => 1200, 'end' => 1230],
+            ['start' => 1730, 'end' => 1800], 
+        ]
     ],
 
     'TRIGGER_SEARCH_PARAMS' => [

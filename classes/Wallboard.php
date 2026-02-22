@@ -14,9 +14,10 @@ class Wallboard
     private string $scriptPath;
     private string $title;
     private int $problemCountShow;
-    private bool $lunchReminder;
-    private int $lunchReminderStart;
-    private int $lunchReminderEnd;
+
+    // nieuw: ondersteund meerdere lunch-blokken
+    private array $lunchReminders = [];
+
     private string $menu = '';
     private string $mainContent = '';
     private bool $isAjaxRequest = false;
@@ -28,9 +29,26 @@ class Wallboard
         $this->scriptPath = $scriptPath;
         $this->title = $display['TITLE'] ?? 'ZbxWallboard';
         $this->problemCountShow = $display['PROBLEM_COUNT_SHOW'] ?? 0;
-        $this->lunchReminder = $display['LUNCH_REMINDER'] ?? false;
-        $this->lunchReminderStart = $display['LUNCH_REMINDER_START'] ?? 1200;
-        $this->lunchReminderEnd = $display['LUNCH_REMINDER_END'] ?? 1230;
+
+        // Load lunch reminders:
+        // - preferred: LUNCH_REMINDERS as array of ['start'=>HHMM, 'end'=>HHMM]
+        // - fallback: legacy single LUNCH_REMINDER + START/END
+        if (!empty($display['LUNCH_REMINDERS']) && is_array($display['LUNCH_REMINDERS'])) {
+            foreach ($display['LUNCH_REMINDERS'] as $period) {
+                if (!is_array($period)) continue;
+                $start = isset($period['start']) ? (int)$period['start'] : null;
+                $end = isset($period['end']) ? (int)$period['end'] : null;
+                if ($start !== null && $end !== null) {
+                    $this->lunchReminders[] = ['start' => $start, 'end' => $end];
+                }
+            }
+        } elseif (!empty($display['LUNCH_REMINDER'])) {
+            // legacy support
+            $start = isset($display['LUNCH_REMINDER_START']) ? (int)$display['LUNCH_REMINDER_START'] : 1200;
+            $end   = isset($display['LUNCH_REMINDER_END']) ? (int)$display['LUNCH_REMINDER_END'] : 1230;
+            $this->lunchReminders[] = ['start' => $start, 'end' => $end];
+        }
+
         $this->csrfToken = $_SESSION['csrf_token'] ?? $this->generateCsrfToken();
 
         // Ensure session defaults for multi-select group handling
@@ -113,26 +131,26 @@ class Wallboard
         $this->mainContent = '<div id="main-content">';
         $this->mainContent .= $this->generateTiles($triggers);
         // NOTE: we intentionally do NOT inject an event details dialog on wallboard
-	$this->mainContent .= '</div>';
+        $this->mainContent .= '</div>';
     }
 
     private function generateTiles(array $triggers): string
     {
+        // Start ALTIJD met de grid container
+        $output = '<div id="wallboard-grid">';
+
         if (empty($triggers)) {
-            $isLunch = (
-                $this->lunchReminder
-                && (int)date('Hi') >= $this->lunchReminderStart
-                && (int)date('Hi') <= $this->lunchReminderEnd
-            );
+            $isLunch = $this->isLunchTime();
             $icon = $isLunch ? '🍴' : '👍';
-            return sprintf(
+            $output .= sprintf(
                 '<div class="no-issues-panel"><div style="font-size: 15vh;">%s</div><p>No issues! Good Job!</p></div>',
                 $icon
             );
+            $output .= '</div>'; // Sluit grid container
+            return $output;
         }
 
         $limit = ($this->problemCountShow === 0) ? count($triggers) : $this->problemCountShow;
-        $output = '<div id="wallboard-grid">';
 
         for ($i = 0; $i < min($limit, count($triggers)); $i++) {
             $trigger = $triggers[$i];
@@ -145,7 +163,6 @@ class Wallboard
             $isAck   = ($lastEvent['acknowledged'] ?? '0') === '1';
             $color   = ($isMaint || $isAck) ? '' : $this->getSeverityColor((int)$trigger['priority']);
 
-	    // NOTE: removed data-eventid attribute to disable clickable details
             $output .= sprintf(
                 '<div class="tile-wide %s shadow">',
                 $color
@@ -168,7 +185,7 @@ class Wallboard
             $output .= '</div></div>';
         }
 
-        $output .= '</div>';
+        $output .= '</div>'; // Sluit grid container
         return $output;
     }
 
@@ -421,19 +438,44 @@ class Wallboard
 
         return sprintf(
             "<!DOCTYPE html>\n<html lang='en'>\n<head>\n<title>%s</title>
-            <meta charset='utf-8'>
-            <meta name='viewport' content='width=device-width, initial-scale=1'>
-            <meta name='csrf-token' content='%s'>
-            <meta http-equiv=\"Content-Security-Policy\" content=\"%s\">
-            <link href='css/style.css' rel='stylesheet'>
-            <script src='js/jquery-4.0.0.min.js' nonce='%s'></script>
-            <script src='js/wallboard.js' nonce='%s'></script>
-            <script src='js/scale.js' nonce='%s'></script>
-            </head>\n",
+                <meta charset='utf-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1'>
+                <meta name='csrf-token' content='%s'>
+                <meta http-equiv=\"Content-Security-Policy\" content=\"%s\">
+                <link href='css/style.css' rel='stylesheet'>
+                <script src='js/jquery-4.0.0.min.js' nonce='%s'></script>
+                <script src='js/wallboard.js' nonce='%s'></script>
+                <script src='js/scale.js' nonce='%s'></script>
+                </head>\n",
             $this->escape($this->title),
             $this->escape($this->csrfToken),
             $csp,
             $nonce, $nonce, $nonce
         );
+    }
+
+    /**
+     * Controleer of het nu een lunchperiode is op basis van de ingestelde blokken.
+    **/
+    private function isLunchTime(): bool
+    {
+        if (empty($this->lunchReminders)) return false;
+
+        $now = (int)date('Hi');
+
+        foreach ($this->lunchReminders as $period) {
+            $start = (int)($period['start'] ?? 0);
+            $end = (int)($period['end'] ?? 0);
+
+            if ($start <= $end) {
+                // normale periode binnen dezelfde dag
+                if ($now >= $start && $now <= $end) return true;
+            } else {
+                // periode overspant middernacht (bijv. 2300 - 0130)
+                if ($now >= $start || $now <= $end) return true;
+            }
+        }
+
+        return false;
     }
 }
