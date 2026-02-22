@@ -5,22 +5,28 @@
  * Handles all communication with the Zabbix API.
  */
 class RemoteData_Zabbix {
-    private ?string $authHash = null;
-    private array $zbxVersion = [];
 
-    public function __construct(
-        private readonly string $url,
-        private readonly string $username,
-        private readonly string $password,
-        private readonly bool $basicAuth
-    ) {
-        $this->authHash = $_SESSION['AUTH_HASH'] ?? $this->api_query('user.login', [
-            'password' => $this->password,
-            'username' => $this->username
-        ]);
-        
-        if (!isset($_SESSION['AUTH_HASH'])) {
-            $this->zbxVersion = $this->get_zbx_version();
+    protected $URL;
+    protected $USERNAME;
+    protected $PASSWORD;
+    protected $BASIC_AUTH;
+    protected $AUTH_HASH;
+    protected $ZBX_VERSION;
+
+    /**
+     * @param array $config Associative array with keys: URL, USERNAME, PASSWORD, BASIC_AUTH
+     */
+    public function __construct(array $config) {
+        $this->URL        = $config['URL'];
+        $this->USERNAME   = $config['USERNAME'];
+        $this->PASSWORD   = $config['PASSWORD'];
+        $this->BASIC_AUTH = $config['BASIC_AUTH'];
+
+        if (isset($_SESSION['AUTH_HASH'])) {
+            $this->AUTH_HASH = $_SESSION['AUTH_HASH'];
+        } else {
+            $this->AUTH_HASH   = $this->api_query('user.login', ['password' => $this->PASSWORD, 'username' => $this->USERNAME]);
+            $this->ZBX_VERSION = $this->get_zbx_version();
         }
     }
 
@@ -65,28 +71,32 @@ class RemoteData_Zabbix {
 
     public function get_eventdetails($PARAMS) {
         $EVENTDETAILS = $this->api_fetch_array('event.get', $PARAMS);
-        
-        foreach ($EVENTDETAILS[0]['acknowledges'] as $ACKED_KEY => &$ack) {
-            $ack['name'] = match(true) {
-                !isset($ack['alias']) => "Inaccessible UserID",
-                isset($ack['name']) && $ack['name'] !== '' => $ack['name'],
-                isset($ack['surname']) && $ack['surname'] !== '' => $ack['surname'],
-                default => $ack['alias']
-            };
-            
-            $ack['surname'] = !isset($ack['alias']) 
-                ? $ack['userid'] 
-                : ($ack['surname'] ?? '');
+        foreach ($EVENTDETAILS[0]['acknowledges'] as $ACKED_KEY => $ACKED_FIELD) {
+            if (!isset($EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['alias'])) {
+                $EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['name']    = "Inaccessible UserID";
+                $EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['surname'] = $EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['userid'];
+            } else {
+                if (!isset($EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['name'])) {
+                    $EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['name'] = '';
+                }
+                if (!isset($EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['surname'])) {
+                    $EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['surname'] = '';
+                }
+                if ($EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['name'] === ''
+                    && $EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['surname'] === '') {
+                    $EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['name'] = $EVENTDETAILS[0]['acknowledges'][$ACKED_KEY]['alias'];
+                }
+            }
         }
-        
         return $EVENTDETAILS;
     }
 
     public function add_acknowledge($EVENTID, $MESSAGE) {
-        $params = $this->ZBX_VERSION[0] >= 4 
-            ? ['eventids' => $EVENTID, 'message' => $MESSAGE, 'action' => 6]
-            : ['eventids' => $EVENTID, 'message' => $MESSAGE];
-        $this->api_query('event.acknowledge', $params);
+        if ($this->ZBX_VERSION[0] >= 4) {
+            $this->api_query('event.acknowledge', ['eventids' => $EVENTID, 'message' => $MESSAGE, 'action' => 6]);
+        } else {
+            $this->api_query('event.acknowledge', ['eventids' => $EVENTID, 'message' => $MESSAGE]);
+        }
     }
 
     public function get_zbx_version() {
@@ -97,9 +107,12 @@ class RemoteData_Zabbix {
     // Private helpers
     // ----------------------------------------------------------------
 
-    private function api_fetch_array(string $method, array $params): array {
-        $result = $this->api_query($method, $params);
-        return is_array($result) ? $result : array();
+    private function api_fetch_array($METHOD, $PARAMS) {
+        $RESULT = $this->api_query($METHOD, $PARAMS);
+        if ($RESULT === false || $RESULT === null) {
+            return [];
+        }
+        return is_array($RESULT) ? $RESULT : [];
     }
 
     private function api_query($METHOD, $PARAMS = []) {
@@ -115,7 +128,7 @@ class RemoteData_Zabbix {
         ]);
 
         $AUTH_TOKEN = ($METHOD === 'user.login' || $METHOD === 'apiinfo.version') ? null : $this->AUTH_HASH;
-        
+
         $DATA_JSON = $this->api_curl($this->URL, $BODY, $AUTH_TOKEN);
         $DATA      = json_decode($DATA_JSON, true);
 
@@ -134,11 +147,12 @@ class RemoteData_Zabbix {
     private function api_curl($URL, $DATA, $AUTH_TOKEN = null) {
         $CURL = curl_init($URL);
 
-        $HEADERS = [
-            'Content-Type: application/json-rpc',
-            'User-Agent: ZbxWallboard',
-            ...($AUTH_TOKEN ? ["Authorization: Bearer $AUTH_TOKEN"] : [])
-        ];
+        $HEADERS   = [];
+        $HEADERS[] = 'Content-Type: application/json-rpc';
+        $HEADERS[] = 'User-Agent: ZbxWallboard';
+        if ($AUTH_TOKEN !== null) {
+            $HEADERS[] = 'Authorization: Bearer ' . $AUTH_TOKEN;
+        }
 
         $CURL_OPTS = [
             CURLOPT_RETURNTRANSFER => true,

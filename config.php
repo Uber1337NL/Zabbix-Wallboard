@@ -8,24 +8,16 @@ return [
         'USERNAME' => getenv('ZABBIX_USERNAME') ?: '',
         'PASSWORD' => getenv('ZABBIX_PASSWORD') ?: '',
         'BASIC_AUTH' => (bool)getenv('ZABBIX_BASIC_AUTH') ?: false,
-        'ENABLED' => true,
         'VERIFY_SSL' => true,
-        'TIMEOUT' => 30,
+        'TIMEOUT' => 5,
         'CONNECT_TIMEOUT' => 5
     ],
 
-    'REVERSE_PROXY_PATH' => '',
-
-    'SESSION' => [
-        'LIFETIME' => 3600,
-        'COOKIE_HTTPONLY' => true,
-        'COOKIE_SECURE' => true,
-        'COOKIE_SAMESITE' => 'Strict'
-    ],
+    'REVERSE_PROXY_PATH' => '', // Usualy /zabbix
 
     'DISPLAY' => [
         'TITLE' => 'Zabbix Wallboard',
-        'PROBLEM_COUNT_SHOW' => 0,
+        'PROBLEM_COUNT_SHOW' => 0, // 0 = Toon alle problemen, vul het scherm
         'LUNCH_REMINDER' => true,
         'LUNCH_REMINDER_START' => 1200,
         'LUNCH_REMINDER_END' => 1230
@@ -56,8 +48,8 @@ return [
 
     'EVENT_SEARCH_PARAMS' => [
         'eventids' => null,
-        'output' => 'extend',
-        'select_acknowledges' => 'extend'
+        'output' => 'extend'
+        // 'select_acknowledges' verwijderd om API errors te voorkomen
     ],
 
     'SEVERITIES' => [

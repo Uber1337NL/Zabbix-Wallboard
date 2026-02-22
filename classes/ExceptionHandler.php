@@ -3,43 +3,47 @@
 class ExceptionHandler
 {
     private const ERROR_SESSION_RESET = 10;
-    private const ERROR_API_AUTH = 11;
-    private const ERROR_API_GENERAL = 12;
-    private const ERROR_UNKNOWN = 100;
+    // ... (andere constants blijven gelijk)
 
     public function error(Throwable $error): void
     {
+        // Log de error altijd naar de systeemlog
         error_log(sprintf(
-            "Error [%d]: %s\nTrace: %s",
+            "Wallboard Error [%d]: %s in %s:%d",
             $error->getCode(),
             $error->getMessage(),
-            $error->getTraceAsString()
+            $error->getFile(),
+            $error->getLine()
         ));
 
-        switch ($error->getCode()) {
-            case self::ERROR_SESSION_RESET:
-                $this->resetSession();
-                break;
+        if ($error->getCode() === self::ERROR_SESSION_RESET) {
+            $this->resetSession();
         }
 
-        $wallboard = new Wallboard();
+        // Gebruik lege waarden als fallback voor de constructor
+        // zodat de error pagina altijd kan renderen
+        $wallboard = new Wallboard('', []); 
+        
+        // Genereer een minimaal menu (leeg)
         $wallboard->generateMenu([], []);
+        
         $wallboard->displayError(
-            $error->getCode(),
+            (int)$error->getCode(),
             $error->getMessage(),
             $error->getTraceAsString()
         );
+        
         $wallboard->publish();
-
         exit;
     }
 
     private function resetSession(): void
     {
-        if (isset($_COOKIE['zbxwallboard_token'])) {
-            setcookie('zbxwallboard_token', '', time() - 3600, '/', '', true, true);
+        // Start sessie alleen als die nog niet bestaat, om destroy te kunnen aanroepen
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
-        
+
         $_SESSION = [];
         
         if (ini_get('session.use_cookies')) {

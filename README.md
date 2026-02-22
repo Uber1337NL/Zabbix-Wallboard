@@ -358,11 +358,13 @@ Edit `config.php` to customize:
 8. **Error Handling**: Errors logged, not displayed to users
 9. **Type Safety**: Strict typing enabled throughout
 10. **SQL Injection Prevention**: Parameterized queries (via Zabbix API)
+11. No more MetroUI: Removed the MetroUI JavaScript and Font libraries
+12. Updated jQuery from 3.7.0 to 4.0.0
 
 ### Security Best Practices
 
 1. **Use HTTPS**: Always run behind HTTPS in production
-2. **Keep PHP Updated**: Use PHP 8.0 or higher
+2. **Keep PHP Updated**: Use PHP 8.1 or higher
 3. **Restrict File Permissions**:
 
    ```bash

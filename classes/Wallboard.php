@@ -31,8 +31,19 @@ class Wallboard
         $this->lunchReminder = $display['LUNCH_REMINDER'] ?? false;
         $this->lunchReminderStart = $display['LUNCH_REMINDER_START'] ?? 1200;
         $this->lunchReminderEnd = $display['LUNCH_REMINDER_END'] ?? 1230;
-        
         $this->csrfToken = $_SESSION['csrf_token'] ?? $this->generateCsrfToken();
+
+        // Ensure session defaults for multi-select group handling
+        if (!isset($_SESSION['groupid'])) {
+            $_SESSION['groupid'] = ['all'];
+        } elseif (!is_array($_SESSION['groupid'])) {
+            $_SESSION['groupid'] = [ (string) $_SESSION['groupid'] ];
+        }
+
+        // Ensure session defaults for severity/hide flags
+        if (!isset($_SESSION['severity'])) $_SESSION['severity'] = 0;
+        if (!isset($_SESSION['hide_acked'])) $_SESSION['hide_acked'] = false;
+        if (!isset($_SESSION['hide_maint'])) $_SESSION['hide_maint'] = false;
     }
 
     private function generateCsrfToken(): string
@@ -57,186 +68,113 @@ class Wallboard
         return self::SEVERITY_COLORS[$severity] ?? '';
     }
 
+    /**
+     * Build script URL preserving session/request params.
+     * Accepts scalar or array for groupid & other keys.
+     */
     public function generateScriptPath(array $reqParams = []): string
     {
         $params = [];
 
-        if (isset($reqParams['groupid'])) {
+        // groupid: prefer incoming param, else session
+        if (array_key_exists('groupid', $reqParams)) {
             $params['groupid'] = $reqParams['groupid'];
-        } elseif (isset($_SESSION['groupid'])) {
-            $params['groupid'] = $_SESSION['groupid'];
+        } else {
+            $params['groupid'] = $_SESSION['groupid'] ?? ['all'];
         }
 
-        if (isset($params['groupid']) && is_array($params['groupid']) && count($params['groupid']) === 0) {
-            $params['groupid'] = ['all'];
-        }
-
-        if (isset($reqParams['severity'])) {
+        // severity
+        if (array_key_exists('severity', $reqParams)) {
             $params['severity'] = $reqParams['severity'];
-        } elseif (isset($_SESSION['severity'])) {
-            $params['severity'] = $_SESSION['severity'];
+        } else {
+            $params['severity'] = $_SESSION['severity'] ?? 0;
         }
 
-        if (isset($reqParams['action'])) {
-            $params['action'] = $reqParams['action'];
-        }
+        if (isset($reqParams['action'])) $params['action'] = $reqParams['action'];
+        if (isset($reqParams['eventid'])) $params['eventid'] = $reqParams['eventid'];
 
-        if (isset($reqParams['eventid'])) {
-            $params['eventid'] = $reqParams['eventid'];
-        }
+        // hide flags
+        $params['hide_acked'] = array_key_exists('hide_acked', $reqParams)
+            ? (int)$reqParams['hide_acked']
+            : ((int)($_SESSION['hide_acked'] ?? 0));
 
-        if (isset($reqParams['hide_acked'])) {
-            $params['hide_acked'] = $reqParams['hide_acked'];
-        } elseif (isset($_SESSION['hide_acked'])) {
-            $params['hide_acked'] = $_SESSION['hide_acked'] ? 1 : 0;
-        }
-
-        if (isset($reqParams['hide_maint'])) {
-            $params['hide_maint'] = $reqParams['hide_maint'];
-        } elseif (isset($_SESSION['hide_maint'])) {
-            $params['hide_maint'] = $_SESSION['hide_maint'] === false ? 1 : 0;
-        }
+        $params['hide_maint'] = array_key_exists('hide_maint', $reqParams)
+            ? (int)$reqParams['hide_maint']
+            : ((int)($_SESSION['hide_maint'] ?? 0));
 
         $params['csrf_token'] = $this->csrfToken;
 
+        // Use PHP's http_build_query which will produce array-style params for groupid
         return $this->scriptPath . '?' . http_build_query($params);
     }
 
     public function generateMainContent(array $triggers): void
     {
-        if ($this->problemCountShow === 0) {
-            $this->problemCountShow = count($triggers);
-        }
-
-        $this->mainContent = '<div class="container-fluid" id="main-content">';
+        $this->mainContent = '<div id="main-content">';
         $this->mainContent .= $this->generateTiles($triggers);
-        $this->mainContent .= $this->generateEventDialog();
-        $this->mainContent .= '</div>';
+        // NOTE: we intentionally do NOT inject an event details dialog on wallboard
+	$this->mainContent .= '</div>';
     }
 
     private function generateTiles(array $triggers): string
     {
-        $output = '';
-        
         if (empty($triggers)) {
-            return $this->generateNoIssuesPanel();
+            $isLunch = (
+                $this->lunchReminder
+                && (int)date('Hi') >= $this->lunchReminderStart
+                && (int)date('Hi') <= $this->lunchReminderEnd
+            );
+            $icon = $isLunch ? '🍴' : '👍';
+            return sprintf(
+                '<div class="no-issues-panel"><div style="font-size: 15vh;">%s</div><p>No issues! Good Job!</p></div>',
+                $icon
+            );
         }
 
-        for ($i = 0; $i < min($this->problemCountShow, count($triggers)); $i++) {
+        $limit = ($this->problemCountShow === 0) ? count($triggers) : $this->problemCountShow;
+        $output = '<div id="wallboard-grid">';
+
+        for ($i = 0; $i < min($limit, count($triggers)); $i++) {
             $trigger = $triggers[$i];
-            if (!is_array($trigger)) {
-               continue;
-            }
-            $isMaintenance = $this->isInMaintenance($trigger);
-            $isAcknowledged = $this->isAcknowledged($trigger);
+            if (!is_array($trigger)) continue;
 
-            $color = ($isMaintenance || $isAcknowledged) 
-                ? '' 
-                : $this->getSeverityColor((int)$trigger['priority']);
+            $hosts = $trigger['hosts'] ?? [];
+            $lastEvent = $trigger['lastEvent'] ?? [];
 
-            $onclick = isset($trigger['lastEvent']['eventid'])
-                ? sprintf(
-                    'onclick="showDialogDetails(\'#dialog_details\',\'%s\');"',
-                    $this->escape($trigger['lastEvent']['eventid'])
-                )
-                : '';
+            $isMaint = array_search('1', array_column($hosts, 'maintenance_status')) !== false;
+            $isAck   = ($lastEvent['acknowledged'] ?? '0') === '1';
+            $color   = ($isMaint || $isAck) ? '' : $this->getSeverityColor((int)$trigger['priority']);
 
+	    // NOTE: removed data-eventid attribute to disable clickable details
             $output .= sprintf(
-                '<div class="tile-wide %s no-margin-right shadow" data-role="tile" %s>',
-                $color,
-                $onclick
+                '<div class="tile-wide %s shadow">',
+                $color
             );
             $output .= '<div class="tile-content">';
             $output .= sprintf(
-                '<p class="align-center text-default">%s</p>',
-                $this->escape(date('Y-m-d H:i:s', $trigger['lastchange']))
+                '<p class="align-center text-date">%s</p>',
+                date('Y-m-d H:i:s', $trigger['lastchange'] ?? time())
             );
+            $hostName = $this->escape($hosts[0]['name'] ?? 'N/A');
+            $desc = $this->escape($trigger['description'] ?? '');
+            $output .= sprintf('<p class="align-center text-accent">%s</p>', $hostName);
+            $output .= sprintf('<p class="align-center text-default">%s</p>', $desc);
 
-            $hostname = $this->escape($trigger['hosts'][0]['name']);
-            $description = $this->escape($trigger['description']);
+            if ($isMaint || $isAck) {
+                $badges = ($isMaint ? '🔧 ' : '') . ($isAck ? '✅' : '');
+                $output .= '<span class="tile-badge bg-emerald">' . $badges . '</span>';
+            }
 
-            $output .= $this->generateResponsiveText($hostname, 32, 'text-accent');
-            $output .= $this->generateResponsiveText($description, 64, 'text-default');
-            $output .= $this->generateBadges($isMaintenance, $isAcknowledged);
             $output .= '</div></div>';
         }
 
+        $output .= '</div>';
         return $output;
-    }
-
-    private function isInMaintenance(array $trigger): bool
-    {
-        return array_search('1', array_column($trigger['hosts'], 'maintenance_status')) !== false;
-    }
-
-    private function isAcknowledged(array $trigger): bool
-    {
-        return isset($trigger['lastEvent']['acknowledged']) 
-            && $trigger['lastEvent']['acknowledged'] === '1';
-    }
-
-    private function generateResponsiveText(string $text, int $threshold, string $class): string
-    {
-        $isLong = strlen($text) > $threshold;
-        return sprintf(
-            '<p class="align-center %s-small %s">%s</p><p class="align-center %s %s">%s</p>',
-            $class,
-            $isLong ? '' : 'hidden',
-            $text,
-            $class,
-            $isLong ? 'hidden' : '',
-            $text
-        );
-    }
-    
-    private function generateBadges(bool $maintenance, bool $acknowledged): string
-    {
-        $badges = [
-            ...($maintenance ? ['<span class="mif-wrench"></span>'] : []),
-            ...($acknowledged ? ['<span class="mif-checkmark"></span>'] : [])
-        ];
-        
-        return $badges ? '<span class="tile-badge bg-emerald">' . implode(' | ', $badges) . '</span>' : '';
-    }
-
-    private function generateNoIssuesPanel(): string
-    {
-        $icon = ($this->lunchReminder 
-            && (int)date('Hi') >= $this->lunchReminderStart 
-            && (int)date('Hi') <= $this->lunchReminderEnd)
-            ? '<span class="mif-spoon-fork mif-ani-flash fg-emerald" style="font-size: 30em;"></span>'
-            : '<span class="mif-thumbs-up fg-emerald" style="font-size: 30em;"></span>';
-
-        return <<<HTML
-        <div class="row flex-just-center">&nbsp;</div>
-        <div class="row flex-just-center">
-            <div class="cell"></div>
-            <div class="panel success">
-                <div class="heading">
-                    <span class="icon mif-thumbs-up"></span>
-                    <span class="title">No issues!</span>
-                </div>
-                <div class="content">
-                    <p class="align-center text-default">
-                        There are no issues in this hostgroup. Good Job!<br />&nbsp;<br />
-                        {$icon}
-                    </p>
-                </div>
-            </div>
-        </div>
-        HTML;
     }
 
     private function generateEventDialog(): string
     {
-        $formAction = $this->escape($this->generateScriptPath(['action' => 'add_acknowledge']));
-        
-        return <<<HTML
-        <div class="dialog" data-role="dialog" id="dialog_details" data-overlay-click-close="true">
-            <div class="dialog-title">Event Details</div>
-            <div class="dialog-content" id="dialog_details_content"></div>
-        </div>
-        HTML;
+        return '<div class="dialog" id="dialog_details"><div class="dialog-title">Event Details</div><div class="dialog-content" id="dialog_details_content"></div></div>';
     }
 
     public function ajaxEventDetails(array $details): void
@@ -247,34 +185,20 @@ class Wallboard
 
     private function formatEventDetails(array $details): string
     {
-        if (empty($details)) {
-            return '<p>No details available</p>';
-        }
+        if (empty($details)) return '<p>No details available</p>';
 
-        $event = $details[0];
-        $output = '<table class="table striped">';
-        
-        $fields = [
-            'Clock' => date('Y-m-d H:i:s', $event['clock']),
-            'Message' => $event['name'] ?? 'N/A'
-        ];
-
-        foreach ($fields as $label => $value) {
-            $output .= sprintf(
-                '<tr><td><b>%s</b></td><td>%s</td></tr>',
-                $this->escape($label),
-                $this->escape($value)
-            );
-        }
-
+        $event  = $details[0];
+        $output = '<table class="table">';
+        $output .= sprintf('<tr><td><b>Clock</b></td><td>%s</td></tr>', date('Y-m-d H:i:s', $event['clock'] ?? time()));
+        $output .= sprintf('<tr><td><b>Message</b></td><td>%s</td></tr>', $this->escape($event['name'] ?? 'N/A'));
         $output .= '</table>';
 
         if (!empty($event['acknowledges'])) {
-            $output .= '<h4>Acknowledgements</h4><table class="table striped">';
+            $output .= '<h4>Acknowledgements</h4><table class="table">';
             foreach ($event['acknowledges'] as $ack) {
                 $output .= sprintf(
                     '<tr><td>%s</td><td>%s %s</td><td>%s</td></tr>',
-                    $this->escape(date('Y-m-d H:i:s', $ack['clock'])),
+                    $this->escape(date('Y-m-d H:i:s', $ack['clock'] ?? time())),
                     $this->escape($ack['name'] ?? ''),
                     $this->escape($ack['surname'] ?? ''),
                     $this->escape($ack['message'] ?? '')
@@ -284,7 +208,7 @@ class Wallboard
         }
 
         if (isset($_SESSION['username'])) {
-            $output .= $this->generateAcknowledgeForm($event['eventid']);
+            $output .= $this->generateAcknowledgeForm($event['eventid'] ?? '');
         }
 
         return $output;
@@ -293,15 +217,14 @@ class Wallboard
     private function generateAcknowledgeForm(string $eventId): string
     {
         $action = $this->escape($this->generateScriptPath(['action' => 'add_acknowledge']));
-        
         return sprintf(
             '<form method="POST" action="%s">
                 <input type="hidden" name="eventid" value="%s">
                 <input type="hidden" name="csrf_token" value="%s">
-                <div class="form-group">
-                    <textarea name="ack_msg" class="input" placeholder="Acknowledgement message" required></textarea>
+                <div>
+                    <textarea name="ack_msg" placeholder="Acknowledgement message" required style="width:100%%;height:80px;"></textarea>
                 </div>
-                <button type="submit" class="button primary">Acknowledge</button>
+                <button type="submit" class="button-primary">Acknowledge</button>
             </form>',
             $action,
             $this->escape($eventId),
@@ -309,86 +232,153 @@ class Wallboard
         );
     }
 
+    /**
+     * Hostgroups menu — supports multi-select via array groupid
+     */
+    private function generateHostgroupMenu(array $hostgroups): string
+    {
+        $selectedIds = $_SESSION['groupid'] ?? ['all'];
+        if (!is_array($selectedIds)) $selectedIds = [$selectedIds];
+        $selectedIds = array_map('strval', $selectedIds);
+
+        $selectedCount = 0;
+        if (in_array('all', $selectedIds, true)) {
+            $label = 'All';
+        } else {
+            $selectedCount = count($selectedIds);
+            $label = $selectedCount > 0 ? ($selectedCount . ' Selected') : 'All';
+        }
+
+        $menu  = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu">', $this->escape($label));
+
+        // Clear Filters option
+        $clearUrl = $this->escape($this->generateScriptPath(['groupid' => ['all']]));
+        $menu .= sprintf('<li><a href="%s" style="border-bottom:1px solid #eee; font-weight:bold;">❌ Clear Filters</a></li>', $clearUrl);
+
+        foreach ($hostgroups as $group) {
+            $gid = (string)($group['groupid'] ?? '');
+            $isActive = in_array($gid, $selectedIds, true);
+
+            // compute new selection for the link
+            $newSelection = array_values(array_diff($selectedIds, ['all']));
+            if ($isActive) {
+                $newSelection = array_values(array_diff($newSelection, [$gid]));
+            } else {
+                $newSelection[] = $gid;
+            }
+            if (empty($newSelection)) $newSelection = ['all'];
+
+            $url = $this->escape($this->generateScriptPath(['groupid' => $newSelection]));
+            $icon = $isActive ? '✅' : '▫️';
+            $class = $isActive ? 'class="active-selection"' : '';
+
+            $menu .= sprintf('<li><a href="%s" %s>%s %s</a></li>',
+                $url,
+                $class,
+                $icon,
+                $this->escape($group['name'] ?? '')
+            );
+        }
+
+        $menu .= '</ul></li>';
+        return $menu;
+    }
+
+    /**
+     * Severity menu — single-select with 'All' clear option
+     */
+    private function generateSeverityMenu(array $severities): string
+    {
+        $currentSeverity = (string)($_SESSION['severity'] ?? '0');
+        $label = ($currentSeverity === '' || $currentSeverity === '0') ? 'All Severities' : ($severities[$currentSeverity] ?? ('Severity ' . $currentSeverity));
+
+        $menu  = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu">', $this->escape($label));
+
+        // All / Clear option
+        $allUrl = $this->escape($this->generateScriptPath(['severity' => 0]));
+        $menu .= sprintf('<li><a href="%s" style="border-bottom:1px solid #eee; font-weight:bold;">❌ All Severities</a></li>', $allUrl);
+
+        foreach ($severities as $level => $name) {
+            $isActive = ((string)$level === $currentSeverity);
+            $url = $this->escape($this->generateScriptPath(['severity' => $level]));
+            $icon = $isActive ? '✅' : '▫️';
+            $class = $isActive ? 'class="active-selection"' : '';
+
+            $menu .= sprintf('<li><a href="%s" %s>%s %s</a></li>',
+                $url,
+                $class,
+                $icon,
+                $this->escape($name)
+            );
+        }
+
+        $menu .= '</ul></li>';
+        return $menu;
+    }
+
+    /**
+     * Main menu builder — uses the helper menus above.
+     */
     public function generateMenu(array $hostgroups, array $severities): void
     {
-        $this->menu = '<div class="app-bar" data-role="appbar">';
+        $this->menu = '<div class="app-bar">';
         $this->menu .= sprintf('<a href="#" class="brand">%s</a>', $this->escape($this->title));
+
         $this->menu .= '<ul class="app-bar-menu">';
         $this->menu .= $this->generateHostgroupMenu($hostgroups);
         $this->menu .= $this->generateSeverityMenu($severities);
-        $this->menu .= $this->generateFilterMenu();
-        $this->menu .= $this->generateAuthMenu();
-        $this->menu .= '</ul></div>';
-    }
 
-    private function generateHostgroupMenu(array $hostgroups): string
-    {
-        $current = $_SESSION['group_name'] ?? 'All';
-        $menu = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu" data-role="dropdown">', $this->escape($current));
-        
-        foreach ($hostgroups as $group) {
-            $url = $this->escape($this->generateScriptPath(['groupid' => $group['groupid']]));
-            $menu .= sprintf('<li><a href="%s">%s</a></li>', $url, $this->escape($group['name']));
-        }
-        
-        $menu .= '</ul></li>';
-        return $menu;
-    }
-
-    private function generateSeverityMenu(array $severities): string
-    {
-        $current = $_SESSION['severity_name'] ?? 'All Severities';
-        $menu = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu" data-role="dropdown">', $this->escape($current));
-        
-        foreach ($severities as $level => $name) {
-            $url = $this->escape($this->generateScriptPath(['severity' => $level]));
-            $menu .= sprintf('<li><a href="%s">%s</a></li>', $url, $this->escape($name));
-        }
-        
-        $menu .= '</ul></li>';
-        return $menu;
-    }
-
-    private function generateFilterMenu(): string
-    {
         $hideAcked = $_SESSION['hide_acked'] ?? false;
         $hideMaint = $_SESSION['hide_maint'] ?? false;
 
-        return sprintf(
-            '<li><a href="%s">%s Acked</a></li><li><a href="%s">%s Maint</a></li>',
+        $this->menu .= sprintf(
+            '<li><a href="%s">%s Acked</a></li>',
             $this->escape($this->generateScriptPath(['hide_acked' => $hideAcked ? 0 : 1])),
-            $hideAcked ? 'Show' : 'Hide',
+            $hideAcked ? 'Show' : 'Hide'
+        );
+        $this->menu .= sprintf(
+            '<li><a href="%s">%s Maint</a></li>',
             $this->escape($this->generateScriptPath(['hide_maint' => $hideMaint ? 0 : 1])),
             $hideMaint ? 'Show' : 'Hide'
         );
-    }
 
-    private function generateAuthMenu(): string
-    {
+        $this->menu .= '</ul>';
+
+        // Right side: clock + auth
+        $this->menu .= '<div class="place-right">';
+        $this->menu .= '<span id="clock"></span>';
+
         if (isset($_SESSION['username'])) {
-            $url = $this->escape($this->generateScriptPath(['action' => 'logout']));
-            return sprintf('<li><a href="%s">Logout (%s)</a></li>', $url, $this->escape($_SESSION['username']));
+            $this->menu .= sprintf(
+                '<a href="%s" style="margin-left:20px;">Logout (%s)</a>',
+                $this->escape($this->generateScriptPath(['action' => 'logout'])),
+                $this->escape($_SESSION['username'])
+            );
+        } else {
+            $this->menu .= '<a href="#" class="open-login-dialog" style="margin-left:20px;">Login</a>';
         }
 
-        return sprintf(
-            '<li><a href="#" data-role="dialog" data-dialog="#login_dialog">Login</a></li>%s',
-            $this->generateLoginDialog()
-        );
+        $this->menu .= '</div></div>';
+
+        // Login dialog (outside app-bar)
+        if (!isset($_SESSION['username'])) {
+            $this->menu .= $this->generateLoginDialog();
+        }
     }
 
     private function generateLoginDialog(): string
     {
         $action = $this->escape($this->generateScriptPath(['action' => 'login']));
-        
         return sprintf(
-            '<div class="dialog" data-role="dialog" id="login_dialog">
+            '<div id="wb-overlay"></div>
+            <div class="dialog" id="login_dialog">
                 <div class="dialog-title">Login</div>
                 <div class="dialog-content">
                     <form method="POST" action="%s">
                         <input type="hidden" name="csrf_token" value="%s">
-                        <input type="text" name="username" placeholder="Username" required>
-                        <input type="password" name="password" placeholder="Password" required>
-                        <button type="submit" class="button primary">Login</button>
+                        <input type="text" name="username" placeholder="Username" autocomplete="username" required>
+                        <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+                        <button type="submit" class="button-primary">Login</button>
                     </form>
                 </div>
             </div>',
@@ -400,10 +390,8 @@ class Wallboard
     public function displayError(int $code, string $message, string $trace): void
     {
         $this->mainContent = sprintf(
-            '<div class="container"><div class="panel alert">
-                <div class="heading"><span class="icon mif-warning"></span>
-                <span class="title">Error %d</span></div>
-                <div class="content"><p>%s</p></div></div></div>',
+            '<div style="padding:20px;"><div style="background:#fff0f0;border:1px solid #ce352c;padding:20px;">
+                <h3>Error %d</h3><p>%s</p></div></div>',
             $code,
             $this->escape($message)
         );
@@ -418,49 +406,34 @@ class Wallboard
         }
 
         echo $this->generateHeader();
-        echo $this->generateBody();
+        echo sprintf("<body>%s%s</body></html>", $this->menu, $this->mainContent);
     }
 
     private function generateHeader(): string
     {
         $nonce = base64_encode(random_bytes(16));
         $_SESSION['csp_nonce'] = $nonce;
-        
+
         $csp = sprintf(
-            "default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
+            "default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self';",
             $nonce
         );
-        
+
         return sprintf(
-            "<!DOCTYPE html>\n<html lang='en'>\n<head>\n<title>%s</title>\n
-            <meta charset='utf-8'>\n
-            <meta http-equiv='X-UA-Compatible' content='IE=edge'>\n
-            <meta name='viewport' content='width=device-width, initial-scale=1'>\n
-            <meta name='csrf-token' content='%s'>\n
-            <meta http-equiv='Content-Security-Policy' content='%s'>\n
-            <link href='css/metro.min.css' rel='stylesheet'>\n
-            <link href='css/metro-icons.min.css' rel='stylesheet'>\n
-            <link href='css/metro-responsive.min.css' rel='stylesheet'>\n
-            <link href='css/metro-schema.min.css' rel='stylesheet'>\n˜
-            <link href='css/style.css' rel='stylesheet'>\n
-            <script src='js/jquery-3.7.0.min.js'></script>\n
-            <script src='js/metro.min.js'></script>\n
-            <script src='js/security.js'></script>\n
-            <script src='js/wallboard.js'></script>\n
-            <script src='js/scale.js'></script>\n
-            </head>",
+            "<!DOCTYPE html>\n<html lang='en'>\n<head>\n<title>%s</title>
+            <meta charset='utf-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1'>
+            <meta name='csrf-token' content='%s'>
+            <meta http-equiv=\"Content-Security-Policy\" content=\"%s\">
+            <link href='css/style.css' rel='stylesheet'>
+            <script src='js/jquery-4.0.0.min.js' nonce='%s'></script>
+            <script src='js/wallboard.js' nonce='%s'></script>
+            <script src='js/scale.js' nonce='%s'></script>
+            </head>\n",
             $this->escape($this->title),
             $this->escape($this->csrfToken),
-            $csp
-        );
-    }
-
-    private function generateBody(): string
-    {
-        return sprintf(
-            "<body class='bg-white'>%s%s</body></html>",
-            $this->menu,
-            $this->mainContent
+            $csp,
+            $nonce, $nonce, $nonce
         );
     }
 }
