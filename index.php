@@ -5,6 +5,9 @@ declare(strict_types=1);
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
+/**
+ * Start secure session
+ */
 session_start([
     'cookie_httponly' => true,
     'cookie_secure' => isset($_SERVER['HTTPS']),
@@ -23,8 +26,8 @@ $exceptionHandler = new ExceptionHandler();
 set_exception_handler([$exceptionHandler, 'error']);
 
 /**
- * Validates input from GET or POST.
- * Note: 'array' type now returns raw values to preserve 'all' string.
+ * Validate input helper
+ * - 'array' returns raw values (no intval) to preserve sentinel 'all'
  */
 function validateInput(string $key, string $type = 'string', $default = null)
 {
@@ -37,16 +40,19 @@ function validateInput(string $key, string $type = 'string', $default = null)
         case 'array':
             return is_array($value) ? $value : [$value];
         case 'bool':
-            return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+            // FILTER_VALIDATE_BOOLEAN returns true/false; if value not present returns false
+            return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
         default:
             return is_string($value) ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $default;
     }
 }
 
-// Handle Session-based Zabbix Authentication
-if (isset($_SESSION['encrypted_password'], $_SESSION['username'], $_SESSION['encryption_key'])) {
+/**
+ * If user previously logged in via session, decrypt stored password into config
+ */
+if (isset($_SESSION['encrypted_password'], $_SESSION['username'], $_SESSION['encryption_key'], $_SESSION['iv'], $_SESSION['tag'])) {
     $config['ZABBIX']['USERNAME'] = $_SESSION['username'];
-    $config['ZABBIX']['PASSWORD'] = openssl_decrypt(
+    $decrypted = openssl_decrypt(
         $_SESSION['encrypted_password'],
         'aes-256-gcm',
         $_SESSION['encryption_key'],
@@ -54,36 +60,45 @@ if (isset($_SESSION['encrypted_password'], $_SESSION['username'], $_SESSION['enc
         $_SESSION['iv'],
         $_SESSION['tag']
     );
+    if ($decrypted !== false) {
+        $config['ZABBIX']['PASSWORD'] = $decrypted;
+    }
 }
 
-// Initialize Backend and Fetch Hostgroups
+// Initialize backend and get hostgroups
 $backendZbx = new RemoteData_Zabbix($config['ZABBIX']);
 $hostgroups = $backendZbx->getHostgroups($config['HOSTGROUP_SEARCH_PARAMS']);
 
-// --- Filter Logic: Hostgroups (Multi-select) ---
+// --- Hostgroup multi-select handling (preserve 'all' sentinel) ---
 $groupIdRaw = validateInput('groupid', 'array');
 if ($groupIdRaw !== null) {
+    // If user chose the sentinel 'all' clear session filters
     if (in_array('all', $groupIdRaw, true)) {
         unset($_SESSION['groupid'], $_SESSION['group_name']);
     } else {
-        $validGroupIds = array_column($hostgroups, 'groupid');
-        $filteredIds = array_values(array_intersect(array_map('strval', $groupIdRaw), $validGroupIds));
+        // Compare as strings to be safe
+        $validGroupIds = array_map('strval', array_column($hostgroups, 'groupid'));
+        $groupIdStrs = array_map('strval', $groupIdRaw);
+        $filteredIds = array_values(array_intersect($groupIdStrs, $validGroupIds));
 
         if (!empty($filteredIds)) {
             $_SESSION['groupid'] = $filteredIds;
-            $_SESSION['group_name'] = count($filteredIds) > 1 ? 'Filtered' :
-                ($hostgroups[array_search($filteredIds[0], $validGroupIds)]['name'] ?? 'Filtered');
+            $_SESSION['group_name'] = count($filteredIds) > 1
+                ? 'Filtered'
+                : ($hostgroups[array_search($filteredIds[0], $validGroupIds)]['name'] ?? 'Filtered');
         } else {
+            // if nothing valid matched, clear session selection
             unset($_SESSION['groupid'], $_SESSION['group_name']);
         }
     }
 }
 
+// If session has groupid, ensure TRIGGER_SEARCH_PARAMS is set
 if (isset($_SESSION['groupid'])) {
     $config['TRIGGER_SEARCH_PARAMS']['groupids'] = $_SESSION['groupid'];
 }
 
-// --- Filter Logic: Severity ---
+// --- Severity filter ---
 $severity = validateInput('severity', 'int');
 if ($severity !== null) {
     $_SESSION['severity'] = $severity;
@@ -92,32 +107,35 @@ if ($severity !== null) {
     $config['TRIGGER_SEARCH_PARAMS']['min_severity'] = $_SESSION['severity'];
 }
 
-// --- Filter Logic: Acknowledged ---
+// --- hide acknowledged ---
 $hideAcked = validateInput('hide_acked', 'bool');
 if ($hideAcked !== null) {
-    $_SESSION['hide_acked'] = $hideAcked;
+    $_SESSION['hide_acked'] = (bool)$hideAcked;
 }
 if (isset($_SESSION['hide_acked'])) {
+    // Zabbix param expects boolean-like for withLastEventUnacknowledged
     $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = $_SESSION['hide_acked'];
 }
 
-// --- Filter Logic: Maintenance ---
+// --- hide maintenance ---
 $hideMaint = validateInput('hide_maint', 'bool');
 if ($hideMaint !== null) {
-    $_SESSION['hide_maint'] = $hideMaint;
+    $_SESSION['hide_maint'] = (bool)$hideMaint;
 }
 if (isset($_SESSION['hide_maint'])) {
+    // We invert because config param 'maintenance' may represent "include in maintenance"
     $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = !$_SESSION['hide_maint'];
 }
 
+// Instantiate Wallboard renderer
 $wallboard = new Wallboard($config['SCRIPT_PATH'], $config['DISPLAY']);
 
+// Handle actions (login/logout). We intentionally do NOT handle 'details' or ack actions here.
 $action = validateInput('action');
 if ($action) {
     $csrfToken = (string)validateInput('csrf_token');
 
-    // CSRF check: Alleen overslaan voor 'login' (omdat je dan nog geen sessie/token hebt soms)
-    // of 'details' (als die nog aangeroepen zou worden).
+    // Skip CSRF validation only for login (user does not yet have a token)
     if (!in_array($action, ['login'], true) && !$wallboard->verifyCsrfToken($csrfToken)) {
         throw new Exception('Invalid CSRF token', 100);
     }
@@ -130,29 +148,46 @@ if ($action) {
                 $_SESSION['username'] = $username;
                 $_SESSION['iv'] = random_bytes(16);
                 $_SESSION['encryption_key'] = random_bytes(32);
-                $encrypted = openssl_encrypt($password, 'aes-256-gcm', $_SESSION['encryption_key'], OPENSSL_RAW_DATA, $_SESSION['iv'], $tag);
+
+                $encrypted = openssl_encrypt(
+                    $password,
+                    'aes-256-gcm',
+                    $_SESSION['encryption_key'],
+                    OPENSSL_RAW_DATA,
+                    $_SESSION['iv'],
+                    $tag
+                );
+
                 $_SESSION['encrypted_password'] = $encrypted;
                 $_SESSION['tag'] = $tag;
+
                 header('Location: ' . $wallboard->generateScriptPath());
                 exit;
             }
             break;
 
         case 'logout':
+            // Make sure session is destroyed and redirect to clean wallboard URL
+            $_SESSION = [];
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+            }
             session_destroy();
-            // Na logout direct naar de schone URL zonder actie-parameters
-            header('Location: index.php'); 
+            header('Location: ' . $wallboard->generateScriptPath());
             exit;
 
-        // 'details' en 'add_acknowledge' zijn hier nu verwijderd, 
-        // dus die doen niets meer op de server.
-        
         default:
-            // Optioneel: negeer onbekende acties ipv een error te gooien op een wallboard
-            header('Location: index.php');
+            // Unknown actions are ignored for the wallboard (keep a stable read-only display)
+            header('Location: ' . $wallboard->generateScriptPath());
             exit;
     }
+} else {
+    // No action: fetch triggers and generate the main content
+    $triggers = $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS']);
+    $wallboard->generateMainContent($triggers);
 }
 
+// Always generate menu and publish (menu uses $hostgroups)
 $wallboard->generateMenu($hostgroups, $config['SEVERITIES']);
 $wallboard->publish();
