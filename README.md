@@ -35,14 +35,14 @@ A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboar
 
 ## Requirements
 
-- **PHP**: 7.4 or higher (8.0+ recommended)
+- **PHP**: 8.1 or higher (due to the usage of the match() function)
 - **PHP Extensions**:
   - curl
   - json
   - openssl
   - session
 - **Web Server**: Apache 2.4+ or Nginx 1.18+
-- **Zabbix**: 4.0 or higher (API access required)
+- **Zabbix**: 6.4 or higher (API access required)
 - **Composer** (optional, for .env file support)
 
 ## Installation

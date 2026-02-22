@@ -24,22 +24,15 @@ set_exception_handler([$exceptionHandler, 'error']);
 
 function validateInput(string $key, string $type = 'string', $default = null)
 {
-    if (!isset($_GET[$key]) && !isset($_POST[$key])) {
-        return $default;
-    }
+    $value = $_GET[$key] ?? $_POST[$key] ?? null;
+    
+    return match($type) {
+        'int' => filter_var($value, FILTER_VALIDATE_INT) !== false ? (int)$value : $default,
+        'array' => is_array($value) ? array_map('intval', $value) : $default,
+        'bool' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+        default => is_string($value) ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $default
+    };
 
-    $value = $_GET[$key] ?? $_POST[$key];
-
-    switch ($type) {
-        case 'int':
-            return filter_var($value, FILTER_VALIDATE_INT) !== false ? (int)$value : $default;
-        case 'array':
-            return is_array($value) ? array_map('intval', $value) : $default;
-        case 'bool':
-            return filter_var($value, FILTER_VALIDATE_BOOLEAN);
-        default:
-            return is_string($value) ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $default;
-    }
 }
 
 if (isset($_SESSION['encrypted_password']) && isset($_SESSION['username']) && isset($_SESSION['encryption_key'])) {
@@ -93,6 +86,7 @@ if ($severity !== null && isset($config['SEVERITIES'][$severity])) {
 }
 
 $hideAcked = validateInput('hide_acked', 'bool');
+// $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = $hideAcked ?? ($_SESSION['hide_acked'] ?? null);
 if ($hideAcked !== null) {
     $_SESSION['hide_acked'] = $hideAcked;
     $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = $hideAcked;
@@ -101,8 +95,9 @@ if ($hideAcked !== null) {
 }
 
 $hideMaint = validateInput('hide_maint', 'bool');
+// $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = isset($hideMaint) ? !$hideMaint : !($_SESSION['hide_maint'] ?? false);
 if ($hideMaint !== null) {
-    $_SESSION['hide_maint'] = $hideMaint;
+    $_SESSION['hide_maint'] = (bool)$hideMaint;
     $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = !$hideMaint;
 } elseif (isset($_SESSION['hide_maint'])) {
     $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = !$_SESSION['hide_maint'];
@@ -118,36 +113,36 @@ if ($action) {
         throw new Exception('Invalid CSRF token', 100);
     }
 
-    switch ($action) {
-        case 'details':
+    match($action) {
+        'details' => (function() use ($backendZbx, $config, $wallboard) {
             $eventId = validateInput('eventid', 'int');
             if ($eventId) {
                 $config['EVENT_SEARCH_PARAMS']['eventids'] = $eventId;
                 $details = $backendZbx->getEventDetails($config['EVENT_SEARCH_PARAMS']);
                 $wallboard->ajaxEventDetails($details);
             }
-            break;
-
-        case 'add_acknowledge':
+        })(),
+        
+        'add_acknowledge' => (function() use ($backendZbx, $wallboard) {
             $eventId = validateInput('eventid', 'int');
             $ackMsg = validateInput('ack_msg');
-
+            
             if ($eventId && $ackMsg && isset($_SESSION['username'])) {
                 $backendZbx->addAcknowledge((string)$eventId, $ackMsg);
                 header('Location: ' . $wallboard->generateScriptPath());
                 exit;
             }
-            break;
-
-        case 'login':
+        })(),
+        
+        'login' => (function() use ($wallboard) {
             $username = validateInput('username');
             $password = $_POST['password'] ?? '';
-
+            
             if ($username && $password) {
                 $_SESSION['username'] = $username;
                 $_SESSION['iv'] = random_bytes(16);
                 $_SESSION['encryption_key'] = random_bytes(32);
-
+                
                 $encrypted = openssl_encrypt(
                     $password,
                     'aes-256-gcm',
@@ -156,23 +151,23 @@ if ($action) {
                     $_SESSION['iv'],
                     $tag
                 );
-
+                
                 $_SESSION['encrypted_password'] = $encrypted;
                 $_SESSION['tag'] = $tag;
-
+                
                 header('Location: ' . $wallboard->generateScriptPath());
                 exit;
             }
-            break;
-
-        case 'logout':
+        })(),
+        
+        'logout' => (function() use ($wallboard) {
             session_destroy();
             header('Location: ' . $wallboard->generateScriptPath());
             exit;
-
-        default:
-            throw new Exception('Unknown action', 100);
-    }
+        })(),
+        
+        default => throw new Exception('Unknown action', 100)
+    };
 } else {
     $triggers = $config['ZABBIX']['ENABLED']
         ? $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS'])

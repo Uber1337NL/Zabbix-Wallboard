@@ -188,24 +188,15 @@ class Wallboard
             $text
         );
     }
-
+    
     private function generateBadges(bool $maintenance, bool $acknowledged): string
     {
-        $badges = [];
+        $badges = [
+            ...($maintenance ? ['<span class="mif-wrench"></span>'] : []),
+            ...($acknowledged ? ['<span class="mif-checkmark"></span>'] : [])
+        ];
         
-        if ($maintenance) {
-            $badges[] = '<span class="mif-wrench"></span>';
-        }
-        
-        if ($acknowledged) {
-            $badges[] = '<span class="mif-checkmark"></span>';
-        }
-
-        if (empty($badges)) {
-            return '';
-        }
-
-        return '<span class="tile-badge bg-emerald">' . implode(' | ', $badges) . '</span>';
+        return $badges ? '<span class="tile-badge bg-emerald">' . implode(' | ', $badges) . '</span>' : '';
     }
 
     private function generateNoIssuesPanel(): string
