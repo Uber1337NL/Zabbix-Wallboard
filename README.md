@@ -640,11 +640,11 @@ MIT License - See LICENSE file for details
 
 ## Credits
 
-- Original Author: [Your Name]
-- Contributors: [List contributors]
-- Built with: PHP, jQuery, Metro UI CSS, Zabbix API
+- Original Author: Uber1337NL
+- Contributors: dranktaxi.nl en thuisbezorgd.nl :-) 
+- Built with: PHP, jQuery, Zabbix API
 
 ---
 
-**Last Updated**: 2026-02-21
-**Version**: 2.0.0
+**Last Updated**: 2026-02-22
+**Version**: 2.0.0-alpha1
