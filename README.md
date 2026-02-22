@@ -243,7 +243,7 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-### Using .env File (Recommended for Security)
+### Using .env File
 
 This method keeps sensitive credentials out of web server configuration files.
 
@@ -364,11 +364,13 @@ Edit `config.php` to customize:
 1. **Use HTTPS**: Always run behind HTTPS in production
 2. **Keep PHP Updated**: Use PHP 8.0 or higher
 3. **Restrict File Permissions**:
+
    ```bash
    chmod 640 config.php .env
    chmod 755 classes/
    chmod 644 classes/*.php
    ```
+
 4. **Enable SSL Verification**: Set `VERIFY_SSL` to `true` in production
 5. **Use Strong Passwords**: For Zabbix API user
 6. **Limit API User Permissions**: Create dedicated read-only user for wallboard
@@ -383,37 +385,44 @@ Navigate to: `http://wallboard.example.com`
 ### Filtering Options
 
 #### By Host Group
+
 - Click the host group dropdown in the menu
 - Select a specific group or "All"
 - Selection persists across page refreshes
 
 #### By Severity
+
 - Click the severity dropdown
 - Choose minimum severity level (0-5)
 - Only alerts at or above this level will display
 
 #### Hide Acknowledged
+
 - Click "Hide Acked" to filter out acknowledged alerts
 - Click "Show Acked" to display all alerts
 
 #### Hide Maintenance
+
 - Click "Hide Maint" to filter out hosts in maintenance
 - Click "Show Maint" to display all hosts
 
 ### User Authentication
 
 #### Login
+
 1. Click "Login" in the top menu
 2. Enter Zabbix credentials
 3. Logged-in users can acknowledge events
 
 #### Acknowledge Alerts
+
 1. Click on any alert tile
 2. Event details dialog appears
 3. Enter acknowledgement message
 4. Click "Acknowledge"
 
 #### Logout
+
 - Click "Logout (username)" in the menu
 
 ### Auto-Refresh
@@ -432,6 +441,7 @@ setTimeout(function() {
 ### Version 2.0.0 (2026-02-21) - Major Security & Modernization Release
 
 #### Security Enhancements
+
 - **[CRITICAL]** Added CSRF protection with secure token generation
 - **[CRITICAL]** Implemented comprehensive XSS prevention with output escaping
 - **[CRITICAL]** Upgraded encryption from AES-256-CBC to AES-256-GCM with authentication
@@ -444,6 +454,7 @@ setTimeout(function() {
 - **[LOW]** Added security headers (X-Frame-Options, X-XSS-Protection, etc.)
 
 #### Code Quality Improvements
+
 - **Renamed variables**: Changed from UPPERCASE to camelCase/PascalCase (PSR standards)
 - **Type hints**: Added strict type declarations throughout
 - **Constants**: Replaced magic numbers with named constants
@@ -454,6 +465,7 @@ setTimeout(function() {
 - **Documentation**: Improved PHPDoc comments
 
 #### Architecture Changes
+
 - **Environment variables**: Support for credentials via env vars
 - **Dependency injection**: Better constructor patterns
 - **Exception handling**: Improved error handling with proper types
@@ -462,6 +474,7 @@ setTimeout(function() {
 - **Configuration**: Moved to array-based config with validation
 
 #### Feature Enhancements
+
 - **Configurable SSL verification**: Can be disabled for development
 - **Configurable timeouts**: API timeout and connection timeout settings
 - **Better Zabbix version detection**: Improved compatibility handling
@@ -469,12 +482,14 @@ setTimeout(function() {
 - **Improved responsive design**: Better text handling for long strings
 
 #### Backward Compatibility
+
 - **Breaking**: Configuration structure changed (see config.php)
 - **Breaking**: Class method names changed (camelCase)
 - **Breaking**: Cookie name changed from `zbxwallboard_pw_crypt_key` to session-only storage
 - **Migration required**: Update web server configuration for env variables
 
 #### Bug Fixes
+
 - Fixed potential memory leaks in session handling
 - Fixed improper boolean comparisons (== vs ===)
 - Fixed missing validation on array inputs
@@ -485,6 +500,7 @@ setTimeout(function() {
 ### Version 1.0.0 (Original)
 
 #### Initial Features
+
 - Basic Zabbix API integration
 - Trigger display in tile format
 - Host group filtering
@@ -499,36 +515,45 @@ setTimeout(function() {
 ### Common Issues
 
 #### "No active API login" Error
+
 **Cause**: Invalid credentials or API user doesn't exist
 **Solution**:
+
 1. Verify environment variables are set correctly
 2. Check Zabbix user exists and has API access
 3. Check Zabbix API endpoint URL is correct
 
 #### "API Error: Permission denied"
+
 **Cause**: Zabbix user lacks necessary permissions
 **Solution**:
+
 1. Grant "Zabbix User" or higher role to API user
 2. Ensure user has access to required host groups
 
 #### Session Expires Immediately
+
 **Cause**: Incorrect session configuration
 **Solution**:
+
 1. Check `COOKIE_SECURE` is `false` if not using HTTPS
 2. Verify session directory is writable: `ls -la /var/lib/php/sessions`
 3. Check PHP session configuration: `php -i | grep session`
 
 #### Environment Variables Not Loading
+
 **Cause**: Web server configuration not applied
 **Solution**:
 
 **Apache**:
+
 ```bash
 sudo a2enmod env
 sudo systemctl restart apache2
 ```
 
 **Nginx**:
+
 ```bash
 sudo nginx -t
 sudo systemctl restart nginx
@@ -536,15 +561,19 @@ sudo systemctl restart php8.2-fpm
 ```
 
 #### SSL Certificate Verification Failed
+
 **Cause**: Self-signed certificate or CA not trusted
 **Solution**:
+
 1. For development: Set `VERIFY_SSL => false` in config
 2. For production: Add CA certificate to system trust store
 3. Alternative: Update `CURLOPT_CAINFO` with CA bundle path
 
 #### "Invalid CSRF token" Error
+
 **Cause**: Session expired or cookies blocked
 **Solution**:
+
 1. Check browser allows cookies
 2. Increase session lifetime in config
 3. Clear browser cookies and try again
@@ -561,11 +590,13 @@ error_reporting(E_ALL);
 Check error logs:
 
 **Apache**:
+
 ```bash
 tail -f /var/log/apache2/wallboard_error.log
 ```
 
 **Nginx**:
+
 ```bash
 tail -f /var/log/nginx/wallboard_error.log
 tail -f /var/log/php8.2-fpm.log
@@ -596,9 +627,10 @@ Zabbix API handles this internally, no configuration needed.
 ## Support
 
 For issues, questions, or contributions:
+
 - **Issues**: GitHub Issues
-- **Email**: support@example.com
-- **Documentation**: https://docs.example.com
+- **Email**: <support@example.com>
+- **Documentation**: <https://docs.example.com>
 
 ## License
 
