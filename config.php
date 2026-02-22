@@ -1,5 +1,7 @@
 <?php
 
+date_default_timezone_set('Europe/Amsterdam');
+
 return [
     'ZABBIX' => [
         'URL' => getenv('ZABBIX_URL') ?: 'https://zabbix.example.com/api_jsonrpc.php',
