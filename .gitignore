@@ -6,6 +6,9 @@ ignore.github/*
 phpunit.xml
 unittest.php
 .env
+.phpunit*
+tests/
+coverage-report/
 
 #### Security: avoid leaking credentials
 src/config.php
