@@ -44,21 +44,6 @@ if (!function_exists('validateInput')) {
     }
 }
 
-if (isset($_SESSION['encrypted_password'], $_SESSION['username'], $_SESSION['encryption_key'], $_SESSION['iv'], $_SESSION['tag'])) {
-    $config['ZABBIX']['USERNAME'] = $_SESSION['username'];
-    $decrypted = openssl_decrypt(
-        $_SESSION['encrypted_password'],
-        'aes-256-gcm',
-        $_SESSION['encryption_key'],
-        OPENSSL_RAW_DATA,
-        $_SESSION['iv'],
-        $_SESSION['tag']
-    );
-    if ($decrypted !== false) {
-        $config['ZABBIX']['PASSWORD'] = $decrypted;
-    }
-}
-
 $backendZbx = new RemoteData_Zabbix($config['ZABBIX']);
 $hostgroups  = $backendZbx->getHostgroups($config['HOSTGROUP_SEARCH_PARAMS']);
 
@@ -114,74 +99,14 @@ $wallboard = new Wallboard($config['SCRIPT_PATH'], $config['DISPLAY']);
 
 $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
-$action = validateInput('action');
-if ($action) {
-    $csrfToken = (string)validateInput('csrf_token');
+$triggers = $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS']);
 
-    if (!in_array($action, ['login'], true) && !$wallboard->verifyCsrfToken($csrfToken)) {
-        throw new Exception('Invalid CSRF token', 100);
-    }
-
-    switch ($action) {
-        case 'login':
-            $username = validateInput('username');
-            $password = $_POST['password'] ?? '';
-            if ($username && $password) {
-                $_SESSION['username']       = $username;
-                $_SESSION['iv']             = random_bytes(16);
-                $_SESSION['encryption_key'] = random_bytes(32);
-
-                $encrypted = openssl_encrypt(
-                    $password,
-                    'aes-256-gcm',
-                    $_SESSION['encryption_key'],
-                    OPENSSL_RAW_DATA,
-                    $_SESSION['iv'],
-                    $tag
-                );
-
-                $_SESSION['encrypted_password'] = $encrypted;
-                $_SESSION['tag']                = $tag;
-
-                header('Location: ' . $wallboard->generateScriptPath());
-                if (!defined('PHPUNIT_RUNNING') || !PHPUNIT_RUNNING) {
-                    exit;
-                }
-                return;
-            }
-            break;
-
-        case 'logout':
-            $_SESSION = [];
-            if (ini_get('session.use_cookies')) {
-                $params = session_get_cookie_params();
-                setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
-            }
-            session_destroy();
-            header('Location: ' . $wallboard->generateScriptPath());
-            if (!defined('PHPUNIT_RUNNING') || !PHPUNIT_RUNNING) {
-                exit;
-            }
-            return;
-
-        default:
-            header('Location: ' . $wallboard->generateScriptPath());
-            if (!defined('PHPUNIT_RUNNING') || !PHPUNIT_RUNNING) {
-                exit;
-            }
-            return;
-    }
-} else {
-    $triggers = $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS']);
-    
-    if ($isAjax) {
-        $wallboard->ajaxMainContent($triggers);
-        $wallboard->publish();
-        exit;
-    }
-    
-    $wallboard->generateMainContent($triggers);
+if ($isAjax) {
+    $wallboard->ajaxMainContent($triggers);
+    $wallboard->publish();
+    exit;
 }
 
+$wallboard->generateMainContent($triggers);
 $wallboard->generateMenu($hostgroups, $config['SEVERITIES']);
 $wallboard->publish();

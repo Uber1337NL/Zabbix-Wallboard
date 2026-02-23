@@ -8,30 +8,21 @@
 class RemoteData_Zabbix {
 
     protected string $URL;
-    protected string $USERNAME;
-    protected string $PASSWORD;
+    protected string $API_TOKEN;
     protected bool $BASIC_AUTH;
+    protected string $BASIC_AUTH_USER;
+    protected string $BASIC_AUTH_PASS;
     protected bool $VERIFY_SSL;
     protected int $CONNECT_TIMEOUT;
-    protected ?string $AUTH_HASH = null;
 
     public function __construct(array $config) {
         $this->URL             = $config['URL'];
-        $this->USERNAME        = $config['USERNAME'];
-        $this->PASSWORD        = $config['PASSWORD'];
-        $this->BASIC_AUTH      = $config['BASIC_AUTH'];
+        $this->API_TOKEN       = $config['API_TOKEN'];
+        $this->BASIC_AUTH      = $config['BASIC_AUTH'] ?? false;
+        $this->BASIC_AUTH_USER = $config['BASIC_AUTH_USER'] ?? '';
+        $this->BASIC_AUTH_PASS = $config['BASIC_AUTH_PASS'] ?? '';
         $this->VERIFY_SSL      = $config['VERIFY_SSL'] ?? true;
         $this->CONNECT_TIMEOUT = $config['CONNECT_TIMEOUT'] ?? 5;
-
-        if (isset($_SESSION['AUTH_HASH'])) {
-            $this->AUTH_HASH = $_SESSION['AUTH_HASH'];
-        } else {
-            $this->AUTH_HASH = $this->api_query('user.login', ['password' => $this->PASSWORD, 'username' => $this->USERNAME]);
-        }
-    }
-
-    public function __destruct() {
-        $this->AUTH_HASH = null;
     }
 
     public function getHostgroups(array $params): array {
@@ -48,10 +39,6 @@ class RemoteData_Zabbix {
     }
 
     private function api_query(string $METHOD, array $PARAMS = []): mixed {
-        if ($this->AUTH_HASH === null && !in_array($METHOD, ['user.login', 'apiinfo.version'], true)) {
-            throw new Exception('No active API login', 11);
-        }
-
         $BODY = json_encode([
             'jsonrpc' => '2.0',
             'method'  => $METHOD,
@@ -59,8 +46,7 @@ class RemoteData_Zabbix {
             'id'      => 1,
         ]);
 
-        $AUTH_TOKEN = in_array($METHOD, ['user.login', 'apiinfo.version'], true) ? null : $this->AUTH_HASH;
-        $DATA_JSON = $this->api_curl($this->URL, $BODY, $AUTH_TOKEN);
+        $DATA_JSON = $this->api_curl($this->URL, $BODY);
         $DATA      = json_decode((string)$DATA_JSON, true);
 
         if (!empty($DATA['result'])) {
@@ -74,12 +60,13 @@ class RemoteData_Zabbix {
         return false;
     }
 
-    private function api_curl(string $URL, string $DATA, ?string $AUTH_TOKEN = null): string|false {
+    private function api_curl(string $URL, string $DATA): string|false {
         $CURL = curl_init($URL);
-        $HEADERS = ['Content-Type: application/json-rpc', 'User-Agent: ZbxWallboard'];
-        if ($AUTH_TOKEN !== null) {
-            $HEADERS[] = 'Authorization: Bearer ' . $AUTH_TOKEN;
-        }
+        $HEADERS = [
+            'Content-Type: application/json-rpc',
+            'User-Agent: ZbxWallboard',
+            'Authorization: Bearer ' . $this->API_TOKEN
+        ];
 
         curl_setopt_array($CURL, [
             CURLOPT_RETURNTRANSFER => true,
@@ -92,7 +79,7 @@ class RemoteData_Zabbix {
 
         if ($this->BASIC_AUTH) {
             curl_setopt($CURL, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-            curl_setopt($CURL, CURLOPT_USERPWD, "{$this->USERNAME}:{$this->PASSWORD}");
+            curl_setopt($CURL, CURLOPT_USERPWD, "{$this->BASIC_AUTH_USER}:{$this->BASIC_AUTH_PASS}");
         }
 
         $RESULT = curl_exec($CURL);

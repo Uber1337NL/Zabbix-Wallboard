@@ -30,19 +30,6 @@
             $('.d-menu').hide();
         });
 
-        $('.open-login-dialog').on('click', function(e) {
-            e.preventDefault();
-            $('#login_dialog').show();
-            $('#wb-overlay').show();
-        });
-
-        $('#wb-overlay').on('click', function() {
-            $('.dialog').hide();
-            $(this).hide();
-        });
-
-        $(document).off('click', '.tile-wide');
-
         const refreshInterval = parseInt($('meta[name="refresh-interval"]').attr('content')) || 30000;
         
         function refreshWallboard() {

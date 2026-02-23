@@ -5,9 +5,10 @@ date_default_timezone_set('Europe/Amsterdam');
 return [
     'ZABBIX' => [
         'URL' => getenv('ZABBIX_URL') ?: 'https://zabbix.example.com/api_jsonrpc.php',
-        'USERNAME' => getenv('ZABBIX_USERNAME') ?: '',
-        'PASSWORD' => getenv('ZABBIX_PASSWORD') ?: '',
-        'BASIC_AUTH' => false,
+        'API_TOKEN' => getenv('ZABBIX_API_TOKEN') ?: '',
+        'BASIC_AUTH' => (bool)getenv('ZABBIX_BASIC_AUTH') ?: false,
+        'BASIC_AUTH_USER' => getenv('ZABBIX_BASIC_AUTH_USER') ?: '',
+        'BASIC_AUTH_PASS' => getenv('ZABBIX_BASIC_AUTH_PASS') ?: '',
         'VERIFY_SSL' => true,
         'CONNECT_TIMEOUT' => 5
     ],

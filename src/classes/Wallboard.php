@@ -97,9 +97,6 @@ class Wallboard
             $params['severity'] = $_SESSION['severity'] ?? 0;
         }
 
-        if (isset($reqParams['action'])) $params['action'] = $reqParams['action'];
-        if (isset($reqParams['eventid'])) $params['eventid'] = $reqParams['eventid'];
-
         $params['hide_acked'] = array_key_exists('hide_acked', $reqParams)
             ? (int)$reqParams['hide_acked']
             : ((int)($_SESSION['hide_acked'] ?? 0));
@@ -284,44 +281,10 @@ class Wallboard
 
         $this->menu .= '<div class="place-right">';
         $this->menu .= '<span id="clock"></span>';
-
-        if (isset($_SESSION['username'])) {
-            $this->menu .= sprintf(
-                '<a href="%s" style="margin-left:20px;">Logout (%s)</a>',
-                $this->escape($this->generateScriptPath(['action' => 'logout'])),
-                $this->escape($_SESSION['username'])
-            );
-        } else {
-            $this->menu .= '<a href="#" class="open-login-dialog" style="margin-left:20px;">Login</a>';
-        }
-
         $this->menu .= '</div></div>';
-
-        if (!isset($_SESSION['username'])) {
-            $this->menu .= $this->generateLoginDialog();
-        }
     }
 
-    private function generateLoginDialog(): string
-    {
-        $action = $this->escape($this->generateScriptPath(['action' => 'login']));
-        return sprintf(
-            '<div id="wb-overlay"></div>
-            <div class="dialog" id="login_dialog">
-                <div class="dialog-title">Login</div>
-                <div class="dialog-content">
-                    <form method="POST" action="%s">
-                        <input type="hidden" name="csrf_token" value="%s">
-                        <input type="text" name="username" placeholder="Username" autocomplete="username" required>
-                        <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
-                        <button type="submit" class="button-primary">Login</button>
-                    </form>
-                </div>
-            </div>',
-            $action,
-            $this->escape($this->csrfToken)
-        );
-    }
+
 
     public function displayError(int $code, string $message, string $trace): void
     {
