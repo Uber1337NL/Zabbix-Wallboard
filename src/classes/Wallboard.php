@@ -187,7 +187,7 @@ class Wallboard
 
         $selectedCount = 0;
         if (in_array('all', $selectedIds, true)) {
-            $label = 'All';
+            $label = 'All Hosts';
         } else {
             $selectedCount = count($selectedIds);
             $label = $selectedCount > 0 ? ($selectedCount . ' Selected') : 'All';
