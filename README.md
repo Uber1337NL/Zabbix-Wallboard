@@ -22,6 +22,8 @@ A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboar
 10. **SQL Injection Prevention**: Parameterized queries (via Zabbix API)
 11. No more MetroUI: Removed the MetroUI JavaScript and Font libraries
 12. Updated jQuery from 3.7.0 to 4.0.0
+13. No more user/pass auth. API Token (Bearer) only.
+14. But... we kept user/pass for basic http authentication ONLY.
 
 ### Security Enhancements
 
