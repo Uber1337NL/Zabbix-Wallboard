@@ -14,7 +14,7 @@ currently being supported with security updates.
 | 6.0.x   | :x: *              |
 | < 6.0   | :x:                |
 
-Tough Zabbix v6.0 is LTS, due to the API changes in v6.4 onwards support 
+^Tough Zabbix v6.0 is LTS, due to the API changes in v6.4 onwards support 
 is being removed. Zabbix 7.0 LTS is the successor of v6.0 released 1,5 
 year ago back in juni 2024. So y'all had enough timne to do an upgrade.
 Zabbix v6.4 is still working so 'supported' by this app, but the focus
