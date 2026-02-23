@@ -7,9 +7,8 @@ return [
         'URL' => getenv('ZABBIX_URL') ?: 'https://zabbix.example.com/api_jsonrpc.php',
         'USERNAME' => getenv('ZABBIX_USERNAME') ?: '',
         'PASSWORD' => getenv('ZABBIX_PASSWORD') ?: '',
-        'BASIC_AUTH' => (bool)getenv('ZABBIX_BASIC_AUTH') ?: false,
+        'BASIC_AUTH' => false,
         'VERIFY_SSL' => true,
-        'TIMEOUT' => 5,
         'CONNECT_TIMEOUT' => 5
     ],
 
@@ -48,10 +47,7 @@ return [
         'sortorder' => 'ASC'
     ],
 
-    'EVENT_SEARCH_PARAMS' => [
-        'eventids' => null,
-        'output' => 'extend'
-    ],
+
 
     'SEVERITIES' => [
         0 => 'Not classified',

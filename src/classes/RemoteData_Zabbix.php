@@ -7,24 +7,26 @@
  */
 class RemoteData_Zabbix {
 
-    protected $URL;
-    protected $USERNAME;
-    protected $PASSWORD;
-    protected $BASIC_AUTH;
-    protected $AUTH_HASH;
-    protected $ZBX_VERSION;
+    protected string $URL;
+    protected string $USERNAME;
+    protected string $PASSWORD;
+    protected bool $BASIC_AUTH;
+    protected bool $VERIFY_SSL;
+    protected int $CONNECT_TIMEOUT;
+    protected ?string $AUTH_HASH = null;
 
     public function __construct(array $config) {
-        $this->URL        = $config['URL'];
-        $this->USERNAME   = $config['USERNAME'];
-        $this->PASSWORD   = $config['PASSWORD'];
-        $this->BASIC_AUTH = $config['BASIC_AUTH'];
+        $this->URL             = $config['URL'];
+        $this->USERNAME        = $config['USERNAME'];
+        $this->PASSWORD        = $config['PASSWORD'];
+        $this->BASIC_AUTH      = $config['BASIC_AUTH'];
+        $this->VERIFY_SSL      = $config['VERIFY_SSL'] ?? true;
+        $this->CONNECT_TIMEOUT = $config['CONNECT_TIMEOUT'] ?? 5;
 
         if (isset($_SESSION['AUTH_HASH'])) {
             $this->AUTH_HASH = $_SESSION['AUTH_HASH'];
         } else {
-            $this->AUTH_HASH   = $this->api_query('user.login', ['password' => $this->PASSWORD, 'username' => $this->USERNAME]);
-            $this->ZBX_VERSION = $this->get_zbx_version();
+            $this->AUTH_HASH = $this->api_query('user.login', ['password' => $this->PASSWORD, 'username' => $this->USERNAME]);
         }
     }
 
@@ -32,34 +34,21 @@ class RemoteData_Zabbix {
         $this->AUTH_HASH = null;
     }
 
-    public function getHostgroups($params) {
+    public function getHostgroups(array $params): array {
         return $this->api_fetch_array('hostgroup.get', $params);
     }
 
-    public function getTriggers($params) {
-        // Zabbix geeft bij triggers via 'selectLastEvent' al aan of een event 'acknowledged' is (0 of 1)
-        // en via 'selectHosts' de 'maintenance_status'.
+    public function getTriggers(array $params): array {
         return $this->api_fetch_array('trigger.get', $params);
     }
 
-    public function getEventDetails($params) {
-        // Voor event details is nu alleen de rauwe array van belang.
-        // De UI (Wallboard.php) handelt de weergave van de acknowledge-berichten af.
-        return $this->api_fetch_array('event.get', $params);
-    }
-
-    public function get_zbx_version() {
-        $version = $this->api_query('apiinfo.version', []);
-        return explode(".", (string)$version);
-    }
-
-    private function api_fetch_array($METHOD, $PARAMS) {
+    private function api_fetch_array(string $METHOD, array $PARAMS): array {
         $RESULT = $this->api_query($METHOD, $PARAMS);
         return is_array($RESULT) ? $RESULT : [];
     }
 
-    private function api_query($METHOD, $PARAMS = []) {
-        if ($this->AUTH_HASH == null && !in_array($METHOD, ['user.login', 'apiinfo.version'])) {
+    private function api_query(string $METHOD, array $PARAMS = []): mixed {
+        if ($this->AUTH_HASH === null && !in_array($METHOD, ['user.login', 'apiinfo.version'], true)) {
             throw new Exception('No active API login', 11);
         }
 
@@ -70,7 +59,7 @@ class RemoteData_Zabbix {
             'id'      => 1,
         ]);
 
-        $AUTH_TOKEN = in_array($METHOD, ['user.login', 'apiinfo.version']) ? null : $this->AUTH_HASH;
+        $AUTH_TOKEN = in_array($METHOD, ['user.login', 'apiinfo.version'], true) ? null : $this->AUTH_HASH;
         $DATA_JSON = $this->api_curl($this->URL, $BODY, $AUTH_TOKEN);
         $DATA      = json_decode((string)$DATA_JSON, true);
 
@@ -85,7 +74,7 @@ class RemoteData_Zabbix {
         return false;
     }
 
-    private function api_curl($URL, $DATA, $AUTH_TOKEN = null) {
+    private function api_curl(string $URL, string $DATA, ?string $AUTH_TOKEN = null): string|false {
         $CURL = curl_init($URL);
         $HEADERS = ['Content-Type: application/json-rpc', 'User-Agent: ZbxWallboard'];
         if ($AUTH_TOKEN !== null) {
@@ -94,11 +83,11 @@ class RemoteData_Zabbix {
 
         curl_setopt_array($CURL, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_CONNECTTIMEOUT => $this->CONNECT_TIMEOUT,
             CURLOPT_HTTPHEADER     => $HEADERS,
             CURLOPT_CUSTOMREQUEST  => 'POST',
             CURLOPT_POSTFIELDS     => $DATA,
-            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYPEER => $this->VERIFY_SSL,
         ]);
 
         if ($this->BASIC_AUTH) {
@@ -107,6 +96,7 @@ class RemoteData_Zabbix {
         }
 
         $RESULT = curl_exec($CURL);
+        curl_close($CURL);
         return $RESULT;
     }
 }

@@ -180,65 +180,7 @@ class Wallboard
         return $output;
     }
 
-    private function generateEventDialog(): string
-    {
-        return '<div class="dialog" id="dialog_details"><div class="dialog-title">Event Details</div><div class="dialog-content" id="dialog_details_content"></div></div>';
-    }
 
-    public function ajaxEventDetails(array $details): void
-    {
-        $this->isAjaxRequest = true;
-        $this->ajaxOutput = $this->formatEventDetails($details);
-    }
-
-    private function formatEventDetails(array $details): string
-    {
-        if (empty($details)) return '<p>No details available</p>';
-
-        $event  = $details[0];
-        $output = '<table class="table">';
-        $output .= sprintf('<tr><td><b>Clock</b></td><td>%s</td></tr>', date('Y-m-d H:i:s', $event['clock'] ?? time()));
-        $output .= sprintf('<tr><td><b>Message</b></td><td>%s</td></tr>', $this->escape($event['name'] ?? 'N/A'));
-        $output .= '</table>';
-
-        if (!empty($event['acknowledges'])) {
-            $output .= '<h4>Acknowledgements</h4><table class="table">';
-            foreach ($event['acknowledges'] as $ack) {
-                $output .= sprintf(
-                    '<tr><td>%s</td><td>%s %s</td><td>%s</td></tr>',
-                    $this->escape(date('Y-m-d H:i:s', $ack['clock'] ?? time())),
-                    $this->escape($ack['name'] ?? ''),
-                    $this->escape($ack['surname'] ?? ''),
-                    $this->escape($ack['message'] ?? '')
-                );
-            }
-            $output .= '</table>';
-        }
-
-        if (isset($_SESSION['username'])) {
-            $output .= $this->generateAcknowledgeForm($event['eventid'] ?? '');
-        }
-
-        return $output;
-    }
-
-    private function generateAcknowledgeForm(string $eventId): string
-    {
-        $action = $this->escape($this->generateScriptPath(['action' => 'add_acknowledge']));
-        return sprintf(
-            '<form method="POST" action="%s">
-                <input type="hidden" name="eventid" value="%s">
-                <input type="hidden" name="csrf_token" value="%s">
-                <div>
-                    <textarea name="ack_msg" placeholder="Acknowledgement message" required style="width:100%%;height:80px;"></textarea>
-                </div>
-                <button type="submit" class="button-primary">Acknowledge</button>
-            </form>',
-            $action,
-            $this->escape($eventId),
-            $this->escape($this->csrfToken)
-        );
-    }
 
     private function generateHostgroupMenu(array $hostgroups): string
     {
