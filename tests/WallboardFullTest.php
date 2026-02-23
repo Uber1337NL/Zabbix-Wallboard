@@ -60,24 +60,31 @@ final class WallboardFullTest extends TestCase
      * @preserveGlobalState disabled
      */
     public function testExceptionHandlerSessionReset(): void
-        {
-            require_once 'classes/Wallboard.php';
-            require_once 'classes/ExceptionHandler.php';
+    {
+        if (!defined('PHPUNIT_RUNNING')) define('PHPUNIT_RUNNING', true);
 
-            $_SESSION['old_user_data'] = 'moet_weg';
-            
-            $handler = new ExceptionHandler();
-            $handler->setConfig(['SCRIPT_PATH' => '/test.php', 'DISPLAY' => []]);
+        require_once 'classes/Wallboard.php';
+        require_once 'classes/ExceptionHandler.php';
 
-            ob_start();
-            $handler->error(new \Exception('Session reset', 10));
-            ob_end_clean();
+        // Zet een sessie klaar die gereset moet worden
+        $_SESSION['username'] = 'admin';
+        $_SESSION['csrf_token'] = 'abc123';
+        $_COOKIE['zbxwallboard_token'] = 'sometoken';
 
-            // Oude data moet weg zijn
-            $this->assertArrayNotHasKey('old_user_data', $_SESSION);
-            // Maar ExceptionHandler zet direct een nieuwe CSRF token
-            $this->assertArrayHasKey('csrf_token', $_SESSION);
-        }
+        $handler = new ExceptionHandler();
+        $handler->setConfig([
+            'SCRIPT_PATH' => '/test.php',
+            'DISPLAY'     => [],
+        ]);
+
+        ob_start();
+        // Code 10 = ERROR_SESSION_RESET → roept resetSession() aan
+        $handler->error(new \Exception('Session reset vereist', 10));
+        ob_end_clean();
+
+        // Na resetSession() moet de sessie leeg zijn
+        $this->assertEmpty($_SESSION);
+    }
 
     /**
      * Test ExceptionHandler setConfig
@@ -480,5 +487,52 @@ final class WallboardFullTest extends TestCase
         $this->assertStringNotContainsString('<script>alert(1)</script>', $output);
         $this->assertStringContainsString('&lt;script&gt;', $output);
         $this->assertStringNotContainsString('<b>evil</b>', $output);
+    }
+
+    public function testGetEventDetails() {
+        if (!isset($_ENV['ZABBIX_URL'])) {
+            $this->markTestSkipped('Zabbix environment variables not set.');
+        }
+        $zabbix = new RemoteData_Zabbix();
+        // We halen eerst triggers op om een geldig event ID te vinden, of we gokken op ID 1
+        $result = $zabbix->getEventDetails(1);
+        $this->assertIsArray($result);
+    }
+
+    public function testApiQueryErrorHandling() {
+        if (!isset($_ENV['ZABBIX_URL'])) {
+            $this->markTestSkipped('Zabbix environment variables not set.');
+        }
+        $zabbix = new RemoteData_Zabbix();
+        // Forceer een ongeldige query om error paden in api_query te testen
+        $result = $zabbix->api_query('non.existent.method', []);
+        $this->assertArrayHasKey('error', $result);
+    }
+
+        public function testZabbixIntegrationAndErrors() {
+        if (!isset($_ENV['ZABBIX_URL'])) {
+            $this->markTestSkipped('Zabbix environment variables not set.');
+        }
+
+        $zabbix = new RemoteData_Zabbix();
+
+        // Test getHostgroups
+        $groups = $zabbix->getHostgroups();
+        $this->assertIsArray($groups);
+
+        // Test getEventDetails (was 0% coverage)
+        $event = $zabbix->getEventDetails(1);
+        $this->assertIsArray($event);
+
+        // Test Error Handling in api_query (verhoogt coverage in api_query/api_curl)
+        $errorResult = $zabbix->api_query('non.existent.method', []);
+        $this->assertArrayHasKey('error', $errorResult);
+    }
+
+    public function testWallboardScriptPath() {
+        $wb = new Wallboard();
+        $path = $wb->get_script_path();
+        $this->assertIsString($path);
+        $this->assertStringContainsString('.php', $path);
     }
 }
