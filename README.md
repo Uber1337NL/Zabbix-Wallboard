@@ -2,7 +2,7 @@
 
 A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboard/TV display format.
 
-## Version 2.0 Security Improvements
+## Version 2.0 Major Security Improvements and Modernization
 
 1. **CSRF Protection**: All state-changing operations require valid CSRF tokens
 2. **XSS Prevention**: All output is properly escaped using `htmlspecialchars()`
@@ -23,8 +23,6 @@ A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboar
 11. No more MetroUI: Removed the MetroUI JavaScript and Font libraries
 12. Updated jQuery from 3.7.0 to 4.0.0
 
-## Version 2.0.0 (2026-02-21) - Major Security & Modernization Release
-
 ### Security Enhancements
 
 - **[CRITICAL]** Added CSRF protection with secure token generation
@@ -40,7 +38,7 @@ A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboar
 
 ### Code Quality Improvements
 
-- **Renamed variables**: Changed from UPPERCASE to camelCase/PascalCase (PSR standards)
+- **Changed variables**: From UPPERCASE to camelCase/PascalCase (PSR standards)
 - **Type hints**: Added strict type declarations throughout
 - **Constants**: Replaced magic numbers with named constants
 - **Error codes**: Documented error code meanings
@@ -98,5 +96,3 @@ MIT License
 - Author: Uber1337NL
 - Contributors: None, yet
 - Built with: PHP, jQuery, Zabbix API
-
-
