@@ -35,7 +35,7 @@ A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboar
 
 ## Requirements
 
-- **PHP**: 8.1 or higher (due to the usage of the match() function)
+- **PHP**: 8.2 or higher (due to the usage of the match() function)
 - **PHP Extensions**:
   - curl
   - json
