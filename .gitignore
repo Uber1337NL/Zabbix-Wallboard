@@ -1,4 +1,28 @@
-.DS_Store
+### GitHub related
+ignore.github/*
+.github/
+
+#### Local development related
+phpunit.xml
+unittest.php
 .env
-vendor/"
+
+#### Security: avoid leaking credentials
 src/config.php
+
+##### Composer
+composer.*
+/vendor/
+
+##### Windows
+# Windows thumbnail cache files
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+##### MacOS
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
