@@ -1,6 +1,5 @@
 <?php
 
-# Set your default datetime zone here.
 date_default_timezone_set('Europe/Amsterdam');
 
 return [
@@ -14,11 +13,12 @@ return [
         'CONNECT_TIMEOUT' => 5
     ],
 
-    'REVERSE_PROXY_PATH' => '', // Usualy /zabbix
+    'REVERSE_PROXY_PATH' => '',
 
     'DISPLAY' => [
         'TITLE' => 'Zabbix Wallboard',
         'PROBLEM_COUNT_SHOW' => 0,
+        'AJAX_REFRESH_INTERVAL' => 30000,
         'LUNCH_REMINDERS' => [
             ['start' => 1200, 'end' => 1230],
             ['start' => 1730, 'end' => 1800], 
@@ -51,7 +51,6 @@ return [
     'EVENT_SEARCH_PARAMS' => [
         'eventids' => null,
         'output' => 'extend'
-        // 'select_acknowledges' verwijderd om API errors te voorkomen
     ],
 
     'SEVERITIES' => [

@@ -14,8 +14,8 @@ class Wallboard
     private string $scriptPath;
     private string $title;
     private int $problemCountShow;
+    private int $ajaxRefreshInterval;
 
-    // nieuw: ondersteund meerdere lunch-blokken
     private array $lunchReminders = [];
 
     private string $menu = '';
@@ -29,10 +29,8 @@ class Wallboard
         $this->scriptPath = $scriptPath;
         $this->title = $display['TITLE'] ?? 'ZbxWallboard';
         $this->problemCountShow = $display['PROBLEM_COUNT_SHOW'] ?? 0;
+        $this->ajaxRefreshInterval = $display['AJAX_REFRESH_INTERVAL'] ?? 30000;
 
-        // Load lunch reminders:
-        // - preferred: LUNCH_REMINDERS as array of ['start'=>HHMM, 'end'=>HHMM]
-        // - fallback: legacy single LUNCH_REMINDER + START/END
         if (!empty($display['LUNCH_REMINDERS']) && is_array($display['LUNCH_REMINDERS'])) {
             foreach ($display['LUNCH_REMINDERS'] as $period) {
                 if (!is_array($period)) continue;
@@ -43,7 +41,6 @@ class Wallboard
                 }
             }
         } elseif (!empty($display['LUNCH_REMINDER'])) {
-            // legacy support
             $start = isset($display['LUNCH_REMINDER_START']) ? (int)$display['LUNCH_REMINDER_START'] : 1200;
             $end   = isset($display['LUNCH_REMINDER_END']) ? (int)$display['LUNCH_REMINDER_END'] : 1230;
             $this->lunchReminders[] = ['start' => $start, 'end' => $end];
@@ -51,14 +48,12 @@ class Wallboard
 
         $this->csrfToken = $_SESSION['csrf_token'] ?? $this->generateCsrfToken();
 
-        // Ensure session defaults for multi-select group handling
         if (!isset($_SESSION['groupid'])) {
             $_SESSION['groupid'] = ['all'];
         } elseif (!is_array($_SESSION['groupid'])) {
             $_SESSION['groupid'] = [ (string) $_SESSION['groupid'] ];
         }
 
-        // Ensure session defaults for severity/hide flags
         if (!isset($_SESSION['severity'])) $_SESSION['severity'] = 0;
         if (!isset($_SESSION['hide_acked'])) $_SESSION['hide_acked'] = false;
         if (!isset($_SESSION['hide_maint'])) $_SESSION['hide_maint'] = false;
@@ -86,22 +81,16 @@ class Wallboard
         return self::SEVERITY_COLORS[$severity] ?? '';
     }
 
-    /**
-     * Build script URL preserving session/request params.
-     * Accepts scalar or array for groupid & other keys.
-     */
     public function generateScriptPath(array $reqParams = []): string
     {
         $params = [];
 
-        // groupid: prefer incoming param, else session
         if (array_key_exists('groupid', $reqParams)) {
             $params['groupid'] = $reqParams['groupid'];
         } else {
             $params['groupid'] = $_SESSION['groupid'] ?? ['all'];
         }
 
-        // severity
         if (array_key_exists('severity', $reqParams)) {
             $params['severity'] = $reqParams['severity'];
         } else {
@@ -111,7 +100,6 @@ class Wallboard
         if (isset($reqParams['action'])) $params['action'] = $reqParams['action'];
         if (isset($reqParams['eventid'])) $params['eventid'] = $reqParams['eventid'];
 
-        // hide flags
         $params['hide_acked'] = array_key_exists('hide_acked', $reqParams)
             ? (int)$reqParams['hide_acked']
             : ((int)($_SESSION['hide_acked'] ?? 0));
@@ -122,7 +110,6 @@ class Wallboard
 
         $params['csrf_token'] = $this->csrfToken;
 
-        // Use PHP's http_build_query which will produce array-style params for groupid
         return $this->scriptPath . '?' . http_build_query($params);
     }
 
@@ -130,13 +117,17 @@ class Wallboard
     {
         $this->mainContent = '<div id="main-content">';
         $this->mainContent .= $this->generateTiles($triggers);
-        // NOTE: we intentionally do NOT inject an event details dialog on wallboard
         $this->mainContent .= '</div>';
+    }
+
+    public function ajaxMainContent(array $triggers): void
+    {
+        $this->isAjaxRequest = true;
+        $this->ajaxOutput = $this->generateTiles($triggers);
     }
 
     private function generateTiles(array $triggers): string
     {
-        // Start ALTIJD met de grid container
         $output = '<div id="wallboard-grid">';
 
         if (empty($triggers)) {
@@ -146,7 +137,7 @@ class Wallboard
                 '<div class="no-issues-panel"><div style="font-size: 15vh;">%s</div><p>No issues! Good Job!</p></div>',
                 $icon
             );
-            $output .= '</div>'; // Sluit grid container
+            $output .= '</div>';
             return $output;
         }
 
@@ -185,7 +176,7 @@ class Wallboard
             $output .= '</div></div>';
         }
 
-        $output .= '</div>'; // Sluit grid container
+        $output .= '</div>';
         return $output;
     }
 
@@ -249,9 +240,6 @@ class Wallboard
         );
     }
 
-    /**
-     * Hostgroups menu — supports multi-select via array groupid
-     */
     private function generateHostgroupMenu(array $hostgroups): string
     {
         $selectedIds = $_SESSION['groupid'] ?? ['all'];
@@ -268,7 +256,6 @@ class Wallboard
 
         $menu  = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu">', $this->escape($label));
 
-        // Clear Filters option
         $clearUrl = $this->escape($this->generateScriptPath(['groupid' => ['all']]));
         $menu .= sprintf('<li><a href="%s" style="border-bottom:1px solid #eee; font-weight:bold;">❌ Clear Filters</a></li>', $clearUrl);
 
@@ -276,7 +263,6 @@ class Wallboard
             $gid = (string)($group['groupid'] ?? '');
             $isActive = in_array($gid, $selectedIds, true);
 
-            // compute new selection for the link
             $newSelection = array_values(array_diff($selectedIds, ['all']));
             if ($isActive) {
                 $newSelection = array_values(array_diff($newSelection, [$gid]));
@@ -301,9 +287,6 @@ class Wallboard
         return $menu;
     }
 
-    /**
-     * Severity menu — single-select with 'All' clear option
-     */
     private function generateSeverityMenu(array $severities): string
     {
         $currentSeverity = (string)($_SESSION['severity'] ?? '0');
@@ -311,7 +294,6 @@ class Wallboard
 
         $menu  = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu">', $this->escape($label));
 
-        // All / Clear option
         $allUrl = $this->escape($this->generateScriptPath(['severity' => 0]));
         $menu .= sprintf('<li><a href="%s" style="border-bottom:1px solid #eee; font-weight:bold;">❌ All Severities</a></li>', $allUrl);
 
@@ -333,9 +315,6 @@ class Wallboard
         return $menu;
     }
 
-    /**
-     * Main menu builder — uses the helper menus above.
-     */
     public function generateMenu(array $hostgroups, array $severities): void
     {
         $this->menu = '<div class="app-bar">';
@@ -361,7 +340,6 @@ class Wallboard
 
         $this->menu .= '</ul>';
 
-        // Right side: clock + auth
         $this->menu .= '<div class="place-right">';
         $this->menu .= '<span id="clock"></span>';
 
@@ -377,7 +355,6 @@ class Wallboard
 
         $this->menu .= '</div></div>';
 
-        // Login dialog (outside app-bar)
         if (!isset($_SESSION['username'])) {
             $this->menu .= $this->generateLoginDialog();
         }
@@ -441,6 +418,7 @@ class Wallboard
                 <meta charset='utf-8'>
                 <meta name='viewport' content='width=device-width, initial-scale=1'>
                 <meta name='csrf-token' content='%s'>
+                <meta name='refresh-interval' content='%d'>
                 <meta http-equiv=\"Content-Security-Policy\" content=\"%s\">
                 <link href='css/style.css' rel='stylesheet'>
                 <script src='js/jquery-4.0.0.min.js' nonce='%s'></script>
@@ -449,14 +427,12 @@ class Wallboard
                 </head>\n",
             $this->escape($this->title),
             $this->escape($this->csrfToken),
+            $this->ajaxRefreshInterval,
             $csp,
             $nonce, $nonce, $nonce
         );
     }
 
-    /**
-     * Controleer of het nu een lunchperiode is op basis van de ingestelde blokken.
-    **/
     private function isLunchTime(): bool
     {
         if (empty($this->lunchReminders)) return false;
@@ -468,10 +444,8 @@ class Wallboard
             $end = (int)($period['end'] ?? 0);
 
             if ($start <= $end) {
-                // normale periode binnen dezelfde dag
                 if ($now >= $start && $now <= $end) return true;
             } else {
-                // periode overspant middernacht (bijv. 2300 - 0130)
                 if ($now >= $start || $now <= $end) return true;
             }
         }

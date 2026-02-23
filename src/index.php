@@ -5,9 +5,6 @@ declare(strict_types=1);
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
-/**
- * Start secure session
- */
 if (session_status() === PHP_SESSION_NONE) {
     session_start([
         'cookie_httponly' => true,
@@ -28,10 +25,6 @@ $exceptionHandler = new ExceptionHandler();
 $exceptionHandler->setConfig($config);
 set_exception_handler([$exceptionHandler, 'error']);
 
-/**
- * Validate input helper
- * - 'array' returns raw values (no intval) to preserve sentinel 'all'
- */
 if (!function_exists('validateInput')) {
     function validateInput(string $key, string $type = 'string', $default = null)
     {
@@ -51,9 +44,6 @@ if (!function_exists('validateInput')) {
     }
 }
 
-/**
- * If user previously logged in via session, decrypt stored password into config
- */
 if (isset($_SESSION['encrypted_password'], $_SESSION['username'], $_SESSION['encryption_key'], $_SESSION['iv'], $_SESSION['tag'])) {
     $config['ZABBIX']['USERNAME'] = $_SESSION['username'];
     $decrypted = openssl_decrypt(
@@ -69,11 +59,9 @@ if (isset($_SESSION['encrypted_password'], $_SESSION['username'], $_SESSION['enc
     }
 }
 
-// Initialize backend and get hostgroups
 $backendZbx = new RemoteData_Zabbix($config['ZABBIX']);
 $hostgroups  = $backendZbx->getHostgroups($config['HOSTGROUP_SEARCH_PARAMS']);
 
-// --- Hostgroup multi-select handling (preserve 'all' sentinel) ---
 $groupIdRaw = validateInput('groupid', 'array');
 if ($groupIdRaw !== null) {
     if (in_array('all', $groupIdRaw, true)) {
@@ -94,12 +82,10 @@ if ($groupIdRaw !== null) {
     }
 }
 
-// If session has groupid, ensure TRIGGER_SEARCH_PARAMS is set
 if (isset($_SESSION['groupid'])) {
     $config['TRIGGER_SEARCH_PARAMS']['groupids'] = $_SESSION['groupid'];
 }
 
-// --- Severity filter ---
 $severity = validateInput('severity', 'int');
 if ($severity !== null) {
     $_SESSION['severity'] = $severity;
@@ -108,7 +94,6 @@ if ($severity !== null) {
     $config['TRIGGER_SEARCH_PARAMS']['min_severity'] = $_SESSION['severity'];
 }
 
-// --- hide acknowledged ---
 $hideAcked = validateInput('hide_acked', 'bool');
 if ($hideAcked !== null) {
     $_SESSION['hide_acked'] = (bool)$hideAcked;
@@ -117,7 +102,6 @@ if (isset($_SESSION['hide_acked'])) {
     $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = $_SESSION['hide_acked'];
 }
 
-// --- hide maintenance ---
 $hideMaint = validateInput('hide_maint', 'bool');
 if ($hideMaint !== null) {
     $_SESSION['hide_maint'] = (bool)$hideMaint;
@@ -126,10 +110,10 @@ if (isset($_SESSION['hide_maint'])) {
     $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = !$_SESSION['hide_maint'];
 }
 
-// Instantiate Wallboard renderer
 $wallboard = new Wallboard($config['SCRIPT_PATH'], $config['DISPLAY']);
 
-// Handle actions (login/logout)
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
 $action = validateInput('action');
 if ($action) {
     $csrfToken = (string)validateInput('csrf_token');
@@ -188,11 +172,16 @@ if ($action) {
             return;
     }
 } else {
-    // No action: fetch triggers and generate the main content
     $triggers = $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS']);
+    
+    if ($isAjax) {
+        $wallboard->ajaxMainContent($triggers);
+        $wallboard->publish();
+        exit;
+    }
+    
     $wallboard->generateMainContent($triggers);
 }
 
-// Always generate menu and publish
 $wallboard->generateMenu($hostgroups, $config['SEVERITIES']);
 $wallboard->publish();
