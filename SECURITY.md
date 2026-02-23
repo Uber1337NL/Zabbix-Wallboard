@@ -11,7 +11,7 @@ currently being supported with security updates.
 | 7.2.x   | :white_check_mark: |
 | 7.0.x   | :white_check_mark: |
 | 6.4.x   | :white_check_mark: |
-| 6.0.x   | :x: *              |
+| 6.0.x   | :x: ˆ              |
 | < 6.0   | :x:                |
 
 ^Tough Zabbix v6.0 is LTS, due to the API changes in v6.4 onwards support 
