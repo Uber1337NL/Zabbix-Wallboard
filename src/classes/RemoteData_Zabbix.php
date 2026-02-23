@@ -175,7 +175,8 @@ class RemoteData_Zabbix {
 
         curl_setopt_array($CURL, $CURL_OPTS);
         $RESULT = @curl_exec($CURL);
-        curl_close($CURL);
+        // deprecated since php8
+        //curl_close($CURL);
         return $RESULT;
     }
 }

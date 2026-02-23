@@ -1,11 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
 class ExceptionHandler
 {
     private const ERROR_SESSION_RESET = 10;
-    private const ERROR_API_AUTH = 11;
-    private const ERROR_API_GENERAL = 12;
-    private const ERROR_UNKNOWN = 100;
+    private const ERROR_API_AUTH      = 11;
+    private const ERROR_API_GENERAL   = 12;
+    private const ERROR_UNKNOWN       = 100;
+
+    private string $scriptPath   = '/index.php';
+    private array  $displayConfig = [];
+
+    public function setConfig(array $config): void
+    {
+        $this->scriptPath    = $config['SCRIPT_PATH']  ?? '/index.php';
+        $this->displayConfig = $config['DISPLAY']      ?? [];
+    }
 
     public function error(Throwable $error): void
     {
@@ -22,7 +33,7 @@ class ExceptionHandler
                 break;
         }
 
-        $wallboard = new Wallboard();
+        $wallboard = new Wallboard($this->scriptPath, $this->displayConfig);
         $wallboard->generateMenu([], []);
         $wallboard->displayError(
             $error->getCode(),
@@ -31,7 +42,9 @@ class ExceptionHandler
         );
         $wallboard->publish();
 
-        exit;
+        if (!defined('PHPUNIT_RUNNING') || !PHPUNIT_RUNNING) {
+            exit;
+        }
     }
 
     private function resetSession(): void
@@ -39,9 +52,9 @@ class ExceptionHandler
         if (isset($_COOKIE['zbxwallboard_token'])) {
             setcookie('zbxwallboard_token', '', time() - 3600, '/', '', true, true);
         }
-        
+
         $_SESSION = [];
-        
+
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
             setcookie(
@@ -54,7 +67,7 @@ class ExceptionHandler
                 $params['httponly']
             );
         }
-        
+
         session_destroy();
     }
 }
