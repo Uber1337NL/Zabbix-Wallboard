@@ -64,7 +64,6 @@ class RemoteData_Zabbix {
         $CURL = curl_init($URL);
         $HEADERS = [
             'Content-Type: application/json-rpc',
-            'User-Agent: ZbxWallboard',
             'Authorization: Bearer ' . $this->API_TOKEN
         ];
 
