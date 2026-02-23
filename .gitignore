@@ -3,12 +3,8 @@ ignore.github/*
 .github/
 
 #### Local development related
-phpunit.xml
-unittest.php
 .env
 .phpunit*
-tests/
-test.sh
 coverage-report/
 
 #### Security: avoid leaking credentials
