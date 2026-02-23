@@ -1,18 +1,21 @@
 (function($) {
     $(document).ready(function() {
-        console.log("Wallboard: Logic initialized.");
 
-        // 1. Clock Update
+        // 1. Locale-aware clock using Intl.DateTimeFormat for displaying the current time
+        const formatter = new Intl.DateTimeFormat('nl-NL', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+
         function updateClock() {
             const now = new Date();
-            const fmt = now.getFullYear() + '-' +
-                String(now.getMonth()+1).padStart(2,'0') + '-' +
-                String(now.getDate()).padStart(2,'0') + ' ' +
-                String(now.getHours()).padStart(2,'0') + ':' +
-                String(now.getMinutes()).padStart(2,'0') + ':' +
-                String(now.getSeconds()).padStart(2,'0');
-            $('#clock').text(fmt);
+            $('#clock').text(formatter.format(now));
         }
+
         updateClock();
         setInterval(updateClock, 1000);
 
