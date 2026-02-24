@@ -270,8 +270,8 @@ class Wallboard
         $this->menu .= $this->generateHostgroupMenu($hostgroups);
         $this->menu .= $this->generateSeverityMenu($severities);
 
-        $hideAcked = $_SESSION['hide_acked'] ?? false;
-        $hideMaint = $_SESSION['hide_maint'] ?? false;
+        $hideAcked = $_SESSION['hide_acked'] ?? true;       // was false
+        $hideMaint = $_SESSION['hide_maint'] ?? true;       // was false
 
         $this->menu .= sprintf(
             '<li><a href="%s">%s Acked</a></li>',
