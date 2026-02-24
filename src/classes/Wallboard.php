@@ -278,12 +278,12 @@ class Wallboard
         $this->menu .= sprintf(
             '<li><a href="%s">%s Acked</a></li>',
             $this->escape($this->generateScriptPath(['hide_acked' => $hideAcked ? 0 : 1])),
-            $hideAcked ? 'Show' : 'Hide'
+            $hideAcked ? 'Hide' : 'Show'
         );
         $this->menu .= sprintf(
             '<li><a href="%s">%s Maint</a></li>',
             $this->escape($this->generateScriptPath(['hide_maint' => $hideMaint ? 0 : 1])),
-            $hideMaint ? 'Show' : 'Hide'
+            $hideMaint ? 'Hide' : 'Show'
         );
 
         $this->menu .= '</ul>';
