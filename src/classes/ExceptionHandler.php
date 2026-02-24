@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 class ExceptionHandler
 {
-    private const int ERROR_SESSION_RESET = 10;
-    private const int ERROR_API_AUTH = 11;
-    private const int ERROR_API_GENERAL = 12;
-    private const int ERROR_UNKNOWN = 100;
-
+    private const ERROR_SESSION_RESET = 10;
+    private const ERROR_API_AUTH      = 11;
+    private const ERROR_API_GENERAL   = 12;
+    private const ERROR_UNKNOWN       = 100;
     private string $scriptPath = '/index.php';
     private array $displayConfig = [];
 
@@ -17,7 +16,7 @@ class ExceptionHandler
         $this->scriptPath = $config['SCRIPT_PATH'] ?? '/index.php';
         $this->displayConfig = $config['DISPLAY'] ?? [];
     }
-
+    
     public function error(Throwable $error): void
     {
         error_log(sprintf(
@@ -30,7 +29,7 @@ class ExceptionHandler
         switch ($error->getCode()) {
             case self::ERROR_SESSION_RESET:
                 $this->resetSession();
-                break;
+            break;
         }
 
         $wallboard = new Wallboard($this->scriptPath, $this->displayConfig);
@@ -46,7 +45,7 @@ class ExceptionHandler
             exit;
         }
     }
-
+    
     private function resetSession(): void
     {
         if (isset($_COOKIE['zbxwallboard_token'])) {
@@ -67,7 +66,6 @@ class ExceptionHandler
                 $params['httponly']
             );
         }
-
         session_destroy();
     }
 }
