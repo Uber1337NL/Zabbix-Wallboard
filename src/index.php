@@ -8,7 +8,7 @@ error_reporting(E_ALL);
 if (session_status() === PHP_SESSION_NONE) {
     session_start([
         'cookie_httponly' => true,
-        'cookie_secure'   => isset($_SERVER['HTTPS']),
+        'cookie_secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
         'cookie_samesite' => 'Strict',
         'use_strict_mode' => true,
     ]);
@@ -33,7 +33,10 @@ if (!function_exists('validateInput')) {
 
         return match ($type) {
             'int' => filter_var($value, FILTER_VALIDATE_INT) !== false ? (int) $value : $default,
-            'array' => is_array($value) ? $value : [$value],
+            'array' => array_map(
+                static fn($item) => is_string($item) ? htmlspecialchars($item, ENT_QUOTES, 'UTF-8') : $item,
+                is_array($value) ? $value : [$value]
+            ),
             'bool' => filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default,
             default => is_string($value) ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $default,
         };
@@ -49,8 +52,7 @@ if ($groupIdRaw !== null) {
         unset($_SESSION['groupid'], $_SESSION['group_name']);
     } else {
         $validGroupIds = array_map('strval', array_column($hostgroups, 'groupid'));
-        $groupIdStrs   = array_map('strval', $groupIdRaw);
-        $filteredIds   = array_values(array_intersect($groupIdStrs, $validGroupIds));
+        $filteredIds = array_filter($groupIdRaw, fn($id) => in_array($id, $validGroupIds, true));
 
         if (!empty($filteredIds)) {
             $_SESSION['groupid']    = $filteredIds;

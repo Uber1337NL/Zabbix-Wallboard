@@ -337,7 +337,6 @@ class Wallboard
                 <link href='css/style.css' rel='stylesheet'>
                 <script src='js/jquery-4.0.0.min.js' nonce='%s'></script>
                 <script src='js/wallboard.js' nonce='%s'></script>
-                <script src='js/scale.js' nonce='%s'></script>
                 </head>\n",
             $this->escape($this->title),
             $this->escape($this->csrfToken),
