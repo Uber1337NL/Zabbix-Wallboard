@@ -2,7 +2,7 @@
 
 class Wallboard
 {
-    private const SEVERITY_COLORS = [
+    private const array SEVERITY_COLORS = [
         0 => 'text-shadow',
         1 => 'fg-white bg-emerald text-shadow',
         2 => 'fg-white bg-amber text-shadow',
@@ -15,9 +15,7 @@ class Wallboard
     private string $title;
     private int $problemCountShow;
     private int $ajaxRefreshInterval;
-
     private array $lunchReminders = [];
-
     private string $menu = '';
     private string $mainContent = '';
     private bool $isAjaxRequest = false;
@@ -29,7 +27,7 @@ class Wallboard
         $this->scriptPath = $scriptPath;
         $this->title = $display['TITLE'] ?? 'ZbxWallboard';
         $this->problemCountShow = $display['PROBLEM_COUNT_SHOW'] ?? 0;
-        $this->ajaxRefreshInterval = $display['AJAX_REFRESH_INTERVAL'] ?? 30000;
+        $this->ajaxRefreshInterval = $display['AJAX_REFRESH_INTERVAL'] ?? 15000;
 
         if (!empty($display['LUNCH_REMINDERS']) && is_array($display['LUNCH_REMINDERS'])) {
             foreach ($display['LUNCH_REMINDERS'] as $period) {
@@ -172,7 +170,7 @@ class Wallboard
 
             if ($isMaint || $isAck) {
                 $badges = ($isMaint ? '🔧 ' : '') . ($isAck ? '✅' : '');
-                $output .= '<span class="tile-badge bg-emerald">' . $badges . '</span>';
+                $output .= "<span class=\"tile-badge bg-emerald\">$badges</span>";
             }
 
             $output .= '</div></div>';
@@ -278,12 +276,12 @@ class Wallboard
         $this->menu .= sprintf(
             '<li><a href="%s">%s Acked</a></li>',
             $this->escape($this->generateScriptPath(['hide_acked' => $hideAcked ? 0 : 1])),
-            $hideAcked ? 'Hide' : 'Show'
+            $hideAcked ? 'Show' : 'Hide'
         );
         $this->menu .= sprintf(
             '<li><a href="%s">%s Maint</a></li>',
             $this->escape($this->generateScriptPath(['hide_maint' => $hideMaint ? 0 : 1])),
-            $hideMaint ? 'Hide' : 'Show'
+            $hideMaint ? 'Show' : 'Hide'
         );
 
         $this->menu .= '</ul>';

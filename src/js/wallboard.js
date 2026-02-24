@@ -35,7 +35,7 @@
             $('.d-menu').hide();
         });
 
-        const refreshInterval = parseInt($('meta[name="refresh-interval"]').attr('content')) || 30000;
+        const refreshInterval = parseInt($('meta[name="refresh-interval"]').attr('content')) || 15000;
 
         function refreshWallboard() {
             $.ajax({

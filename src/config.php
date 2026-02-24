@@ -18,8 +18,8 @@ return [
     'DISPLAY' => [
         'TITLE' => 'Zabbix Wallboard',
         'PROBLEM_COUNT_SHOW' => 0,
-        'AJAX_REFRESH_INTERVAL' => 30000,
-        'LUNCH_REMINDERS' => [
+        'AJAX_REFRESH_INTERVAL' => 15000, // in milliseconds
+            'LUNCH_REMINDERS' => [
             ['start' => 1200, 'end' => 1230],
             ['start' => 1730, 'end' => 1800],
         ]
