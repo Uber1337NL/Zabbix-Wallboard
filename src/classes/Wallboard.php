@@ -2,7 +2,7 @@
 
 class Wallboard
 {
-    private const array SEVERITY_COLORS = [
+        private const SEVERITY_COLORS = [
         0 => 'text-shadow',
         1 => 'fg-white bg-emerald text-shadow',
         2 => 'fg-white bg-amber text-shadow',
