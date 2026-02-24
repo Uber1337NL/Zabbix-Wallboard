@@ -6,6 +6,7 @@ ignore.github/*
 .env
 .phpunit*
 coverage-report/
+rector.php
 
 #### Security: avoid leaking credentials
 src/config.php

@@ -6,7 +6,7 @@ return [
     'ZABBIX' => [
         'URL' => getenv('ZABBIX_URL') ?: 'https://zabbix.example.com/api_jsonrpc.php',
         'API_TOKEN' => getenv('ZABBIX_API_TOKEN') ?: '',
-        'BASIC_AUTH' => (bool)getenv('ZABBIX_BASIC_AUTH') ?: false,
+        'BASIC_AUTH' => (bool) getenv('ZABBIX_BASIC_AUTH') ?: false,
         'BASIC_AUTH_USER' => getenv('ZABBIX_BASIC_AUTH_USER') ?: '',
         'BASIC_AUTH_PASS' => getenv('ZABBIX_BASIC_AUTH_PASS') ?: '',
         'VERIFY_SSL' => true,
@@ -21,7 +21,7 @@ return [
         'AJAX_REFRESH_INTERVAL' => 30000,
         'LUNCH_REMINDERS' => [
             ['start' => 1200, 'end' => 1230],
-            ['start' => 1730, 'end' => 1800], 
+            ['start' => 1730, 'end' => 1800],
         ]
     ],
 
@@ -47,8 +47,6 @@ return [
         'sortfield' => 'name',
         'sortorder' => 'ASC'
     ],
-
-
 
     'SEVERITIES' => [
         0 => 'Not classified',

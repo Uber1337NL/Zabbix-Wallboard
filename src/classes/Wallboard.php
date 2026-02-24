@@ -33,16 +33,17 @@ class Wallboard
 
         if (!empty($display['LUNCH_REMINDERS']) && is_array($display['LUNCH_REMINDERS'])) {
             foreach ($display['LUNCH_REMINDERS'] as $period) {
-                if (!is_array($period)) continue;
-                $start = isset($period['start']) ? (int)$period['start'] : null;
-                $end = isset($period['end']) ? (int)$period['end'] : null;
+                if (!is_array($period))
+                    continue;
+                $start = isset($period['start']) ? (int) $period['start'] : null;
+                $end = isset($period['end']) ? (int) $period['end'] : null;
                 if ($start !== null && $end !== null) {
                     $this->lunchReminders[] = ['start' => $start, 'end' => $end];
                 }
             }
         } elseif (!empty($display['LUNCH_REMINDER'])) {
-            $start = isset($display['LUNCH_REMINDER_START']) ? (int)$display['LUNCH_REMINDER_START'] : 1200;
-            $end   = isset($display['LUNCH_REMINDER_END']) ? (int)$display['LUNCH_REMINDER_END'] : 1230;
+            $start = isset($display['LUNCH_REMINDER_START']) ? (int) $display['LUNCH_REMINDER_START'] : 1200;
+            $end = isset($display['LUNCH_REMINDER_END']) ? (int) $display['LUNCH_REMINDER_END'] : 1230;
             $this->lunchReminders[] = ['start' => $start, 'end' => $end];
         }
 
@@ -51,12 +52,15 @@ class Wallboard
         if (!isset($_SESSION['groupid'])) {
             $_SESSION['groupid'] = ['all'];
         } elseif (!is_array($_SESSION['groupid'])) {
-            $_SESSION['groupid'] = [ (string) $_SESSION['groupid'] ];
+            $_SESSION['groupid'] = [(string) $_SESSION['groupid']];
         }
 
-        if (!isset($_SESSION['severity'])) $_SESSION['severity'] = 0;
-        if (!isset($_SESSION['hide_acked'])) $_SESSION['hide_acked'] = false;
-        if (!isset($_SESSION['hide_maint'])) $_SESSION['hide_maint'] = false;
+        if (!isset($_SESSION['severity']))
+            $_SESSION['severity'] = 0;
+        if (!isset($_SESSION['hide_acked']))
+            $_SESSION['hide_acked'] = false;
+        if (!isset($_SESSION['hide_maint']))
+            $_SESSION['hide_maint'] = false;
     }
 
     private function generateCsrfToken(): string
@@ -98,12 +102,12 @@ class Wallboard
         }
 
         $params['hide_acked'] = array_key_exists('hide_acked', $reqParams)
-            ? (int)$reqParams['hide_acked']
-            : ((int)($_SESSION['hide_acked'] ?? 0));
+            ? (int) $reqParams['hide_acked']
+            : ((int) ($_SESSION['hide_acked'] ?? 0));
 
         $params['hide_maint'] = array_key_exists('hide_maint', $reqParams)
-            ? (int)$reqParams['hide_maint']
-            : ((int)($_SESSION['hide_maint'] ?? 0));
+            ? (int) $reqParams['hide_maint']
+            : ((int) ($_SESSION['hide_maint'] ?? 0));
 
         $params['csrf_token'] = $this->csrfToken;
 
@@ -142,14 +146,15 @@ class Wallboard
 
         for ($i = 0; $i < min($limit, count($triggers)); $i++) {
             $trigger = $triggers[$i];
-            if (!is_array($trigger)) continue;
+            if (!is_array($trigger))
+                continue;
 
             $hosts = $trigger['hosts'] ?? [];
             $lastEvent = $trigger['lastEvent'] ?? [];
 
             $isMaint = array_search('1', array_column($hosts, 'maintenance_status')) !== false;
-            $isAck   = ($lastEvent['acknowledged'] ?? '0') === '1';
-            $color   = ($isMaint || $isAck) ? '' : $this->getSeverityColor((int)$trigger['priority']);
+            $isAck = ($lastEvent['acknowledged'] ?? '0') === '1';
+            $color = ($isMaint || $isAck) ? '' : $this->getSeverityColor((int) $trigger['priority']);
 
             $output .= sprintf(
                 '<div class="tile-wide %s shadow">',
@@ -182,7 +187,8 @@ class Wallboard
     private function generateHostgroupMenu(array $hostgroups): string
     {
         $selectedIds = $_SESSION['groupid'] ?? ['all'];
-        if (!is_array($selectedIds)) $selectedIds = [$selectedIds];
+        if (!is_array($selectedIds))
+            $selectedIds = [$selectedIds];
         $selectedIds = array_map('strval', $selectedIds);
 
         $selectedCount = 0;
@@ -193,13 +199,13 @@ class Wallboard
             $label = $selectedCount > 0 ? ($selectedCount . ' Selected') : 'All';
         }
 
-        $menu  = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu">', $this->escape($label));
+        $menu = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu">', $this->escape($label));
 
         $clearUrl = $this->escape($this->generateScriptPath(['groupid' => ['all']]));
         $menu .= sprintf('<li><a href="%s" style="border-bottom:1px solid #eee; font-weight:bold;">❌ Clear Filters</a></li>', $clearUrl);
 
         foreach ($hostgroups as $group) {
-            $gid = (string)($group['groupid'] ?? '');
+            $gid = (string) ($group['groupid'] ?? '');
             $isActive = in_array($gid, $selectedIds, true);
 
             $newSelection = array_values(array_diff($selectedIds, ['all']));
@@ -208,13 +214,15 @@ class Wallboard
             } else {
                 $newSelection[] = $gid;
             }
-            if (empty($newSelection)) $newSelection = ['all'];
+            if (empty($newSelection))
+                $newSelection = ['all'];
 
             $url = $this->escape($this->generateScriptPath(['groupid' => $newSelection]));
             $icon = $isActive ? '✅' : '▫️';
             $class = $isActive ? 'class="active-selection"' : '';
 
-            $menu .= sprintf('<li><a href="%s" %s>%s %s</a></li>',
+            $menu .= sprintf(
+                '<li><a href="%s" %s>%s %s</a></li>',
                 $url,
                 $class,
                 $icon,
@@ -228,21 +236,22 @@ class Wallboard
 
     private function generateSeverityMenu(array $severities): string
     {
-        $currentSeverity = (string)($_SESSION['severity'] ?? '0');
+        $currentSeverity = (string) ($_SESSION['severity'] ?? '0');
         $label = ($currentSeverity === '' || $currentSeverity === '0') ? 'All Severities' : ($severities[$currentSeverity] ?? ('Severity ' . $currentSeverity));
 
-        $menu  = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu">', $this->escape($label));
+        $menu = sprintf('<li><a href="#" class="dropdown-toggle">%s</a><ul class="d-menu">', $this->escape($label));
 
         $allUrl = $this->escape($this->generateScriptPath(['severity' => 0]));
         $menu .= sprintf('<li><a href="%s" style="border-bottom:1px solid #eee; font-weight:bold;">❌ All Severities</a></li>', $allUrl);
 
         foreach ($severities as $level => $name) {
-            $isActive = ((string)$level === $currentSeverity);
+            $isActive = ((string) $level === $currentSeverity);
             $url = $this->escape($this->generateScriptPath(['severity' => $level]));
             $icon = $isActive ? '✅' : '▫️';
             $class = $isActive ? 'class="active-selection"' : '';
 
-            $menu .= sprintf('<li><a href="%s" %s>%s %s</a></li>',
+            $menu .= sprintf(
+                '<li><a href="%s" %s>%s %s</a></li>',
                 $url,
                 $class,
                 $icon,
@@ -334,24 +343,29 @@ class Wallboard
             $this->escape($this->csrfToken),
             $this->ajaxRefreshInterval,
             $csp,
-            $nonce, $nonce, $nonce
+            $nonce,
+            $nonce,
+            $nonce
         );
     }
 
     private function isLunchTime(): bool
     {
-        if (empty($this->lunchReminders)) return false;
+        if (empty($this->lunchReminders))
+            return false;
 
-        $now = (int)date('Hi');
+        $now = (int) date('Hi');
 
         foreach ($this->lunchReminders as $period) {
-            $start = (int)($period['start'] ?? 0);
-            $end = (int)($period['end'] ?? 0);
+            $start = (int) ($period['start'] ?? 0);
+            $end = (int) ($period['end'] ?? 0);
 
             if ($start <= $end) {
-                if ($now >= $start && $now <= $end) return true;
+                if ($now >= $start && $now <= $end)
+                    return true;
             } else {
-                if ($now >= $start || $now <= $end) return true;
+                if ($now >= $start || $now <= $end)
+                    return true;
             }
         }
 

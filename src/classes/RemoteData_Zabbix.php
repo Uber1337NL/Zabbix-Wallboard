@@ -5,8 +5,8 @@
  * Handles all communication with the Zabbix API.
  * Optimized for performance: only fetches essential trigger and event status.
  */
-class RemoteData_Zabbix {
-
+class RemoteData_Zabbix
+{
     protected string $URL;
     protected string $API_TOKEN;
     protected bool $BASIC_AUTH;
@@ -15,39 +15,44 @@ class RemoteData_Zabbix {
     protected bool $VERIFY_SSL;
     protected int $CONNECT_TIMEOUT;
 
-    public function __construct(array $config) {
-        $this->URL             = $config['URL'];
-        $this->API_TOKEN       = $config['API_TOKEN'];
-        $this->BASIC_AUTH      = $config['BASIC_AUTH'] ?? false;
+    public function __construct(array $config)
+    {
+        $this->URL = $config['URL'];
+        $this->API_TOKEN = $config['API_TOKEN'];
+        $this->BASIC_AUTH = $config['BASIC_AUTH'] ?? false;
         $this->BASIC_AUTH_USER = $config['BASIC_AUTH_USER'] ?? '';
         $this->BASIC_AUTH_PASS = $config['BASIC_AUTH_PASS'] ?? '';
-        $this->VERIFY_SSL      = $config['VERIFY_SSL'] ?? true;
+        $this->VERIFY_SSL = $config['VERIFY_SSL'] ?? true;
         $this->CONNECT_TIMEOUT = $config['CONNECT_TIMEOUT'] ?? 5;
     }
 
-    public function getHostgroups(array $params): array {
+    public function getHostgroups(array $params): array
+    {
         return $this->api_fetch_array('hostgroup.get', $params);
     }
 
-    public function getTriggers(array $params): array {
+    public function getTriggers(array $params): array
+    {
         return $this->api_fetch_array('trigger.get', $params);
     }
 
-    private function api_fetch_array(string $METHOD, array $PARAMS): array {
+    private function api_fetch_array(string $METHOD, array $PARAMS): array
+    {
         $RESULT = $this->api_query($METHOD, $PARAMS);
         return is_array($RESULT) ? $RESULT : [];
     }
 
-    private function api_query(string $METHOD, array $PARAMS = []): mixed {
+    private function api_query(string $METHOD, array $PARAMS = []): mixed
+    {
         $BODY = json_encode([
             'jsonrpc' => '2.0',
-            'method'  => $METHOD,
-            'params'  => $PARAMS,
-            'id'      => 1,
+            'method' => $METHOD,
+            'params' => $PARAMS,
+            'id' => 1,
         ]);
 
         $DATA_JSON = $this->api_curl($this->URL, $BODY);
-        $DATA      = json_decode((string)$DATA_JSON, true);
+        $DATA = json_decode((string) $DATA_JSON, true);
 
         if (!empty($DATA['result'])) {
             return $DATA['result'];
@@ -60,7 +65,8 @@ class RemoteData_Zabbix {
         return false;
     }
 
-    private function api_curl(string $URL, string $DATA): string|false {
+    private function api_curl(string $URL, string $DATA): string|false
+    {
         $CURL = curl_init($URL);
         $HEADERS = [
             'Content-Type: application/json-rpc',
@@ -70,9 +76,9 @@ class RemoteData_Zabbix {
         curl_setopt_array($CURL, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => $this->CONNECT_TIMEOUT,
-            CURLOPT_HTTPHEADER     => $HEADERS,
-            CURLOPT_CUSTOMREQUEST  => 'POST',
-            CURLOPT_POSTFIELDS     => $DATA,
+            CURLOPT_HTTPHEADER => $HEADERS,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => $DATA,
             CURLOPT_SSL_VERIFYPEER => $this->VERIFY_SSL,
         ]);
 
@@ -82,7 +88,6 @@ class RemoteData_Zabbix {
         }
 
         $RESULT = curl_exec($CURL);
-        curl_close($CURL);
         return $RESULT;
     }
 }

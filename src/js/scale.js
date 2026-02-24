@@ -50,7 +50,7 @@
                 tiles.css({ width: '100%', height: '100%', margin: '0' });
                 tiles.find('.text-accent').css('font-size', '12vh');
                 tiles.find('.text-default').css('font-size', '5vh');
-            } 
+            }
             else if (count === 2) {
                 // Twee tegels naast elkaar
                 tiles.css({ width: 'calc(50% - 20px)', height: '90%' });
@@ -72,7 +72,7 @@
         };
 
         $(window).off('resize' + ns).on('resize' + ns, resize);
-        
+
         const observer = new MutationObserver(() => {
             clearTimeout(container.data('timer'));
             container.data('timer', setTimeout(resize, 100));

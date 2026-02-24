@@ -1,5 +1,5 @@
-(function($) {
-    $(document).ready(function() {
+(function ($) {
+    $(document).ready(function () {
 
         const formatter = new Intl.DateTimeFormat('nl-NL', {
             day: '2-digit',
@@ -18,7 +18,7 @@
         updateClock();
         setInterval(updateClock, 1000);
 
-        $('.dropdown-toggle').on('click', function(e) {
+        $('.dropdown-toggle').on('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             const menu = $(this).next('.d-menu');
@@ -26,12 +26,12 @@
             menu.toggle();
         });
 
-        $(document).on('click', function() {
+        $(document).on('click', function () {
             $('.d-menu').hide();
         });
 
         const refreshInterval = parseInt($('meta[name="refresh-interval"]').attr('content')) || 30000;
-        
+
         function refreshWallboard() {
             $.ajax({
                 url: window.location.href,
@@ -40,12 +40,12 @@
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                success: function(response) {
+                success: function (response) {
                     if (response.html) {
                         $('#main-content').html(response.html);
                     }
                 },
-                error: function() {
+                error: function () {
                     console.error('Failed to refresh wallboard');
                 }
             });

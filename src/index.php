@@ -31,16 +31,12 @@ if (!function_exists('validateInput')) {
         $value = $_GET[$key] ?? $_POST[$key] ?? null;
         if ($value === null) return $default;
 
-        switch ($type) {
-            case 'int':
-                return filter_var($value, FILTER_VALIDATE_INT) !== false ? (int)$value : $default;
-            case 'array':
-                return is_array($value) ? $value : [$value];
-            case 'bool':
-                return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
-            default:
-                return is_string($value) ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $default;
-        }
+        return match ($type) {
+            'int' => filter_var($value, FILTER_VALIDATE_INT) !== false ? (int) $value : $default,
+            'array' => is_array($value) ? $value : [$value],
+            'bool' => filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default,
+            default => is_string($value) ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $default,
+        };
     }
 }
 
