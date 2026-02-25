@@ -9,10 +9,14 @@ class ExceptionHandler
     private const ERROR_API_GENERAL   = 12;
     private const ERROR_UNKNOWN       = 100;
 
-    public function __construct(
-        private string $scriptPath = '/index.php',
-        private array $displayConfig = []
-    ) {}
+    private string $scriptPath;
+    private array $displayConfig;
+
+    public function __construct(array $config = [])
+    {
+        $this->scriptPath = $config['SCRIPT_PATH'] ?? '/index.php';
+        $this->displayConfig = $config['DISPLAY'] ?? [];
+    }
 
     public function error(Throwable $error): void
     {
