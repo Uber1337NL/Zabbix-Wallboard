@@ -269,15 +269,15 @@ class Wallboard
 
         return sprintf(
             "<!DOCTYPE html>\n<html lang='en'>\n<head>\n<title>%s</title>
-<meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'>
-<meta name='csrf-token' content='%s'>
-<meta name='refresh-interval' content='%d'>
-<meta http-equiv=\"Content-Security-Policy\" content=\"%s\">
-<link href='css/style.css' rel='stylesheet'>
-<script src='js/jquery-4.0.0.min.js' nonce='%s'></script>
-<script src='js/wallboard.js' nonce='%s'></script>
-</head>\n",
+            <meta charset='utf-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1'>
+            <meta name='csrf-token' content='%s'>
+            <meta name='refresh-interval' content='%d'>
+            <meta http-equiv=\"Content-Security-Policy\" content=\"%s\">
+            <link href='css/style.css' rel='stylesheet'>
+            <script src='js/jquery-4.0.0.min.js' nonce='%s'></script>
+            <script src='js/wallboard.js' nonce='%s'></script>
+            </head>\n",
             $this->escape($this->title),
             $this->escape($this->csrfToken),
             $this->ajaxRefreshInterval,
