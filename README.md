@@ -4,7 +4,7 @@ A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboar
 
 The code itself is located in the src/ directory. The files in the root directory are used for unit testing, documentation, etc. This release is about 137 kb of filws. Compared to the v1 version whoch was about 2 Mb in size. No more weird javascript frameworks, external fonts, etc. The only external library is jQuery-4.0.0-min which is 88 kb in size. In the next release that will be deprecated too, bringing the codebase down to only 50 kB. Less is more!
 
-![Screenshot with multiple alerts][(http://url/to/img.png](https://github.com/Uber1337NL/zabbix-wallboard/blob/main/img/screen-multiple-errors.png))
+![Screenshot with multiple alerts][(https://github.com/Uber1337NL/zabbix-wallboard/blob/main/img/screen-multiple-errors.png)]
 
 ## Version 2.x Major Security Improvements and Modernization
 
