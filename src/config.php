@@ -26,21 +26,18 @@ return [
     ],
 
     'TRIGGER_SEARCH_PARAMS' => [
-        'output' => 'extend',
-        'selectHosts' => 'extend',
-        'selectLastEvent' => 'extend',
-        'expandData' => 'true',
-        'expandDescription' => 'true',
-        'min_severity' => 0,
-        'groupids' => null,
-        'withLastEventUnacknowledged' => null,
-        'maintenance' => null,
-        'monitored' => 'true',
-        'only_true' => 'true',
-        'skipDependent' => 'true',
-        'sortfield' => 'lastchange',
-        'sortorder' => 'DESC'
-    ],
+            'output' => 'extend',
+            'selectHosts' => 'extend',
+            'selectLastEvent' => 'extend',
+            'expandDescription' => true, // Gebruik booleans, geen strings "true"
+            'monitored' => true,
+            'only_true' => true,
+            'skipDependent' => true,
+            'sortfield' => 'lastchange',
+            'sortorder' => 'DESC'
+            // Verwijder groupids, min_severity, withLastEventUnacknowledged en maintenance hier.
+            // Deze worden dynamisch toegevoegd door index.php op basis van de sessie.
+        ],
 
     'HOSTGROUP_SEARCH_PARAMS' => [
         'output' => 'extend',
