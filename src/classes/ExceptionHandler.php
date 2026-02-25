@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 class ExceptionHandler
 {
-    private const int ERROR_SESSION_RESET = 10;
-    private const int ERROR_API_AUTH      = 11;
-    private const int ERROR_API_GENERAL   = 12;
-    private const int ERROR_UNKNOWN       = 100;
+    private const ERROR_SESSION_RESET = 10;
+    private const ERROR_API_AUTH      = 11;
+    private const ERROR_API_GENERAL   = 12;
+    private const ERROR_UNKNOWN       = 100;
 
     public function __construct(
         private string $scriptPath = '/index.php',
