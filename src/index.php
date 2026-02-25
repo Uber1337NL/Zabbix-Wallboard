@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 #require 'vendor/autoload.php';
 
+use App\Classes\ExceptionHandler;
 use App\Classes\RemoteData_Zabbix;
 use App\Classes\Wallboard;
-use App\Classes\ExceptionHandler;
 
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
