@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 #require 'vendor/autoload.php';
-require_once __DIR__ . 'classes/ExceptionHandler.php';
-require_once __DIR__ . 'classes/Wallboard.php';
-require_once __DIR__ . 'classes/RemoteData_Zabbix.php';
+require_once __DIR__ . '/classes/ExceptionHandler.php';
+require_once __DIR__ . '/classes/Wallboard.php';
+require_once __DIR__ . '/classes/RemoteData_Zabbix.php';
 
 use App\Classes\ExceptionHandler;
 use App\Classes\RemoteData_Zabbix;
