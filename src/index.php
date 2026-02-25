@@ -77,20 +77,32 @@ if ($severity !== null) {
     $config['TRIGGER_SEARCH_PARAMS']['min_severity'] = $_SESSION['severity'];
 }
 
+// --- Filter: Acknowledged ---
 $hideAcked = validateInput('hide_acked', 'bool');
 if ($hideAcked !== null) {
     $_SESSION['hide_acked'] = (bool)$hideAcked;
 }
-if (isset($_SESSION['hide_acked'])) {
-    $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = $_SESSION['hide_acked'];
+
+// Zabbix API: alleen meesturen als we daadwerkelijk willen filteren (true)
+if (!empty($_SESSION['hide_acked'])) {
+    $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = true;
+} else {
+    // Verwijder de key als we alles willen zien, anders gaat de API over de rooie
+    unset($config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged']);
 }
 
+// --- Filter: Maintenance ---
 $hideMaint = validateInput('hide_maint', 'bool');
 if ($hideMaint !== null) {
     $_SESSION['hide_maint'] = (bool)$hideMaint;
 }
-if (isset($_SESSION['hide_maint'])) {
-    $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = !$_SESSION['hide_maint'];
+
+// Zabbix API: 'maintenance' => false betekent "verberg maintenance"
+// Als we maintenance willen ZIEN (hideMaint = false), sturen we de parameter liever helemaal niet mee
+if (!empty($_SESSION['hide_maint'])) {
+    $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = false;
+} else {
+    unset($config['TRIGGER_SEARCH_PARAMS']['maintenance']);
 }
 
 $wallboard = new Wallboard($config['SCRIPT_PATH'], $config['DISPLAY']);
