@@ -52,13 +52,9 @@ class Wallboard
         } elseif (!is_array($_SESSION['groupid'])) {
             $_SESSION['groupid'] = [(string) $_SESSION['groupid']];
         }
-
-        if (!isset($_SESSION['severity']))
-            $_SESSION['severity'] = 0;
-        if (!isset($_SESSION['hide_acked']))
-            $_SESSION['hide_acked'] = false;
-        if (!isset($_SESSION['hide_maint']))
-            $_SESSION['hide_maint'] = false;
+        if (!isset($_SESSION['severity'])) $_SESSION['severity'] = 0;
+        if (!isset($_SESSION['hide_acked'])) $_SESSION['hide_acked'] = false;
+        if (!isset($_SESSION['hide_maint'])) $_SESSION['hide_maint'] = false;
     }
 
     private function generateCsrfToken(): string
@@ -86,30 +82,17 @@ class Wallboard
     public function generateScriptPath(array $reqParams = []): string
     {
         $params = [];
-
-        if (array_key_exists('groupid', $reqParams)) {
-            $params['groupid'] = $reqParams['groupid'];
-        } else {
-            $params['groupid'] = $_SESSION['groupid'] ?? ['all'];
-        }
-
-        if (array_key_exists('severity', $reqParams)) {
-            $params['severity'] = $reqParams['severity'];
-        } else {
-            $params['severity'] = $_SESSION['severity'] ?? 0;
-        }
-
+        $params['groupid'] = (array_key_exists('groupid', $reqParams)) ? $reqParams['groupid'] : $_SESSION['groupid'] ?? ['all'];
+        $params['severity'] = (array_key_exists('severity', $reqParams)) ? $reqParams['severity'] : $_SESSION['severity'] ?? 0;
         $params['hide_acked'] = array_key_exists('hide_acked', $reqParams)
             ? (int) $reqParams['hide_acked']
             : ((int) ($_SESSION['hide_acked'] ?? 0));
-
         $params['hide_maint'] = array_key_exists('hide_maint', $reqParams)
             ? (int) $reqParams['hide_maint']
             : ((int) ($_SESSION['hide_maint'] ?? 0));
-
         $params['csrf_token'] = $this->csrfToken;
 
-        return $this->scriptPath . '?' . http_build_query($params);
+        return "{$this->scriptPath}?" . http_build_query($params);
     }
 
     public function generateMainContent(array $triggers): void
@@ -179,8 +162,6 @@ class Wallboard
         $output .= '</div>';
         return $output;
     }
-
-
 
     private function generateHostgroupMenu(array $hostgroups): string
     {
@@ -290,8 +271,6 @@ class Wallboard
         $this->menu .= '<span id="clock"></span>';
         $this->menu .= '</div></div>';
     }
-
-
 
     public function displayError(int $code, string $message, string $trace): void
     {
