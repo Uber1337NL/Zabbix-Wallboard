@@ -26,45 +26,40 @@ $exceptionHandler->setConfig($config);
 set_exception_handler([$exceptionHandler, 'error']);
 
 if (!function_exists('validateInput')) {
-    function validateInput(string $key, string $type = 'string', $default = null)
+    function validateInput(string $key, string $type = 'string', mixed $default = null): mixed
     {
         $value = $_GET[$key] ?? $_POST[$key] ?? null;
-        if ($value === null) return $default;
+        if ($value === null) {
+            return $default;
+        }
 
         return match ($type) {
-            'int'   => filter_var($value, FILTER_VALIDATE_INT) !== false ? (int) $value : $default,
+            'int' => filter_var($value, FILTER_VALIDATE_INT) !== false ? (int) $value : $default,
             'array' => array_map(
                 static fn($item) => is_string($item) ? htmlspecialchars($item, ENT_QUOTES, 'UTF-8') : $item,
                 is_array($value) ? $value : [$value]
             ),
-            'bool'  => filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default,
+            'bool' => filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default,
             default => is_string($value) ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $default,
         };
     }
 }
 
-// -------------------------------------------------------------------------
 // Backend + hostgroups
-// -------------------------------------------------------------------------
-$backendZbx = new RemoteData_Zabbix($config['ZABBIX']);
-$hostgroups  = $backendZbx->getHostgroups($config['HOSTGROUP_SEARCH_PARAMS']);
+$remoteData = RemoteData_Zabbix::fromConfig($config['ZABBIX']);
+$hostgroups = $remoteData->getHostgroups($config['HOSTGROUP_SEARCH_PARAMS'] ?? []);
 
-// -------------------------------------------------------------------------
 // Filter: Hostgroup
-// -------------------------------------------------------------------------
 $groupIdRaw = validateInput('groupid', 'array');
 if ($groupIdRaw !== null) {
     if (in_array('all', $groupIdRaw, true)) {
-        // "Clear Filters" geklikt: reset sessie
         unset($_SESSION['groupid'], $_SESSION['group_name']);
     } else {
         $validGroupIds = array_map('strval', array_column($hostgroups, 'groupid'));
-        $filteredIds   = array_values(
-            array_filter($groupIdRaw, fn($id) => in_array($id, $validGroupIds, true))
-        );
+        $filteredIds = array_values(array_filter($groupIdRaw, fn($id) => in_array($id, $validGroupIds, true)));
 
         if (!empty($filteredIds)) {
-            $_SESSION['groupid']    = $filteredIds;
+            $_SESSION['groupid'] = $filteredIds;
             $_SESSION['group_name'] = count($filteredIds) > 1
                 ? 'Filtered'
                 : ($hostgroups[array_search($filteredIds[0], $validGroupIds)]['name'] ?? 'Filtered');
@@ -74,72 +69,56 @@ if ($groupIdRaw !== null) {
     }
 }
 
-// Alleen meesturen als er een actieve groepfilter is
 if (!empty($_SESSION['groupid']) && !in_array('all', $_SESSION['groupid'], true)) {
     $config['TRIGGER_SEARCH_PARAMS']['groupids'] = $_SESSION['groupid'];
 } else {
     unset($config['TRIGGER_SEARCH_PARAMS']['groupids']);
 }
 
-// -------------------------------------------------------------------------
 // Filter: Severity
-// -------------------------------------------------------------------------
 $severity = validateInput('severity', 'int');
 if ($severity !== null) {
     $_SESSION['severity'] = $severity;
 }
 
-// Alleen meesturen als severity > 0 (0 = "All Severities")
 if (!empty($_SESSION['severity'])) {
     $config['TRIGGER_SEARCH_PARAMS']['min_severity'] = (int) $_SESSION['severity'];
 } else {
     unset($config['TRIGGER_SEARCH_PARAMS']['min_severity']);
 }
 
-// -------------------------------------------------------------------------
 // Filter: Hide Acknowledged
-// -------------------------------------------------------------------------
 $hideAcked = validateInput('hide_acked', 'bool');
 if ($hideAcked !== null) {
-    $_SESSION['hide_acked'] = (bool) $hideAcked;
+    $_SESSION['hide_acked'] = $hideAcked;
 }
 
-// Zabbix API accepteert withLastEventUnacknowledged alleen als true
-// Bij false: parameter weglaten, anders geeft de API een -32500 fout
 if (!empty($_SESSION['hide_acked'])) {
     $config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged'] = true;
 } else {
     unset($config['TRIGGER_SEARCH_PARAMS']['withLastEventUnacknowledged']);
 }
 
-// -------------------------------------------------------------------------
 // Filter: Hide Maintenance
-// -------------------------------------------------------------------------
 $hideMaint = validateInput('hide_maint', 'bool');
 if ($hideMaint !== null) {
-    $_SESSION['hide_maint'] = (bool) $hideMaint;
+    $_SESSION['hide_maint'] = $hideMaint;
 }
 
-// Zabbix API: maintenance => false = verberg hosts in maintenance
-// Bij "toon alles" (hideMaint = false): parameter weglaten
 if (!empty($_SESSION['hide_maint'])) {
     $config['TRIGGER_SEARCH_PARAMS']['maintenance'] = false;
 } else {
     unset($config['TRIGGER_SEARCH_PARAMS']['maintenance']);
 }
 
-// -------------------------------------------------------------------------
 // Wallboard initialiseren
-// -------------------------------------------------------------------------
-$wallboard = new Wallboard($config['SCRIPT_PATH'], $config['DISPLAY']);
+$wallboard = new Wallboard($config['SCRIPT_PATH'], $config['DISPLAY'] ?? []);
 
 $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
     && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
-// -------------------------------------------------------------------------
 // Triggers ophalen en renderen
-// -------------------------------------------------------------------------
-$triggers = $backendZbx->getTriggers($config['TRIGGER_SEARCH_PARAMS']);
+$triggers = $remoteData->getTriggers($config['TRIGGER_SEARCH_PARAMS'] ?? []);
 
 if ($isAjax) {
     $wallboard->ajaxMainContent($triggers);
@@ -148,5 +127,5 @@ if ($isAjax) {
 }
 
 $wallboard->generateMainContent($triggers);
-$wallboard->generateMenu($hostgroups, $config['SEVERITIES']);
+$wallboard->generateMenu($hostgroups, $config['SEVERITIES'] ?? []);
 $wallboard->publish();
