@@ -2,7 +2,7 @@
 
 A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboard/TV display format.
 
-## Version 2.0 Major Security Improvements and Modernization
+## Version 2.x Major Security Improvements and Modernization
 
 1. **CSRF Protection**: All state-changing operations require valid CSRF tokens
 2. **XSS Prevention**: All output is properly escaped using `htmlspecialchars()`
