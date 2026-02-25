@@ -10,7 +10,7 @@ use function in_array;
 use function is_array;
 use function sprintf;
 
-readonly class Wallboard
+class Wallboard
 {
     private const SEVERITY_COLORS = [
         0 => 'text-shadow',
@@ -26,16 +26,16 @@ readonly class Wallboard
     private int $ajaxRefreshInterval;
     private array $lunchReminders;
     private string $csrfToken;
+    private string $scriptPath;
 
-    private string $menu;
-    private string $mainContent;
-    private bool $isAjaxRequest;
-    private string $ajaxOutput;
+    private string $menu = '';
+    private string $mainContent = '';
+    private bool $isAjaxRequest = false;
+    private string $ajaxOutput = '';
 
-    public function __construct(
-        private readonly string $scriptPath = '',
-        array $display = []
-    ) {
+    public function __construct(string $scriptPath = '', array $display = [])
+    {
+        $this->scriptPath = $scriptPath;
         $this->title = $display['TITLE'] ?? 'ZbxWallboard';
         $this->problemCountShow = $display['PROBLEM_COUNT_SHOW'] ?? 0;
         $this->ajaxRefreshInterval = $display['AJAX_REFRESH_INTERVAL'] ?? 15000;
@@ -52,11 +52,6 @@ readonly class Wallboard
         $this->lunchReminders = $reminders;
 
         $this->csrfToken = $_SESSION['csrf_token'] ?? $this->generateCsrfToken();
-
-        $this->menu = '';
-        $this->mainContent = '';
-        $this->isAjaxRequest = false;
-        $this->ajaxOutput = '';
 
         $_SESSION['groupid'] = match (true) {
             !isset($_SESSION['groupid']) => ['all'],
