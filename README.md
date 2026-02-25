@@ -48,6 +48,7 @@ A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboar
 - **Method visibility**: Properly declared all methods as public/private
 - **Code formatting**: Consistent indentation and spacing
 - **Documentation**: Improved PHPDoc comments
+- Changed the minimum PHP requirement to PHP8.2. All older versions are EOL.
 
 ### Architecture Changes
 
@@ -57,6 +58,7 @@ A secure, modern dashboard for displaying Zabbix monitoring alerts in a wallboar
 - **Session management**: Enhanced session security and lifecycle
 - **API communication**: Better error handling for API failures
 - **Configuration**: Moved to array-based config with validation
+- Changed from username/password to Bearer API token only
 
 ### Feature Enhancements
 
