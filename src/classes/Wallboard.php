@@ -1,6 +1,16 @@
 <?php
 
-class Wallboard
+declare(strict_types=1);
+
+namespace App\Classes;
+
+use function array_slice;
+use function count;
+use function in_array;
+use function is_array;
+use function sprintf;
+
+readonly class Wallboard
 {
     private const SEVERITY_COLORS = [
         0 => 'text-shadow',
@@ -11,23 +21,23 @@ class Wallboard
         5 => 'fg-white bg-darkMagenta text-shadow',
     ];
 
-    private readonly string $title;
-    private readonly int $problemCountShow;
-    private readonly int $ajaxRefreshInterval;
-    private readonly array $lunchReminders;
-    private readonly string $csrfToken;
+    private string $title;
+    private int $problemCountShow;
+    private int $ajaxRefreshInterval;
+    private array $lunchReminders;
+    private string $csrfToken;
 
-    private string $menu        = '';
-    private string $mainContent = '';
-    private bool   $isAjaxRequest = false;
-    private string $ajaxOutput  = '';
+    private string $menu;
+    private string $mainContent;
+    private bool $isAjaxRequest;
+    private string $ajaxOutput;
 
     public function __construct(
         private readonly string $scriptPath = '',
         array $display = []
     ) {
-        $this->title               = $display['TITLE'] ?? 'ZbxWallboard';
-        $this->problemCountShow    = $display['PROBLEM_COUNT_SHOW'] ?? 0;
+        $this->title = $display['TITLE'] ?? 'ZbxWallboard';
+        $this->problemCountShow = $display['PROBLEM_COUNT_SHOW'] ?? 0;
         $this->ajaxRefreshInterval = $display['AJAX_REFRESH_INTERVAL'] ?? 15000;
 
         $reminders = [];
@@ -35,7 +45,7 @@ class Wallboard
             if (isset($period['start'], $period['end'])) {
                 $reminders[] = [
                     'start' => (int) $period['start'],
-                    'end'   => (int) $period['end'],
+                    'end' => (int) $period['end'],
                 ];
             }
         }
@@ -43,13 +53,18 @@ class Wallboard
 
         $this->csrfToken = $_SESSION['csrf_token'] ?? $this->generateCsrfToken();
 
+        $this->menu = '';
+        $this->mainContent = '';
+        $this->isAjaxRequest = false;
+        $this->ajaxOutput = '';
+
         $_SESSION['groupid'] = match (true) {
-            !isset($_SESSION['groupid'])    => ['all'],
+            !isset($_SESSION['groupid']) => ['all'],
             !is_array($_SESSION['groupid']) => [(string) $_SESSION['groupid']],
-            default                         => $_SESSION['groupid'],
+            default => $_SESSION['groupid'],
         };
 
-        $_SESSION['severity']   ??= 0;
+        $_SESSION['severity'] ??= 0;
         $_SESSION['hide_acked'] ??= false;
         $_SESSION['hide_maint'] ??= false;
     }
@@ -77,8 +92,8 @@ class Wallboard
     public function generateScriptPath(array $reqParams = []): string
     {
         $params = [
-            'groupid'    => $reqParams['groupid']    ?? $_SESSION['groupid']    ?? ['all'],
-            'severity'   => $reqParams['severity']   ?? $_SESSION['severity']   ?? 0,
+            'groupid' => $reqParams['groupid'] ?? $_SESSION['groupid'] ?? ['all'],
+            'severity' => $reqParams['severity'] ?? $_SESSION['severity'] ?? 0,
             'hide_acked' => (int) ($reqParams['hide_acked'] ?? $_SESSION['hide_acked'] ?? 0),
             'hide_maint' => (int) ($reqParams['hide_maint'] ?? $_SESSION['hide_maint'] ?? 0),
             'csrf_token' => $this->csrfToken,
@@ -97,7 +112,7 @@ class Wallboard
     public function ajaxMainContent(array $triggers): void
     {
         $this->isAjaxRequest = true;
-        $this->ajaxOutput    = $this->generateTiles($triggers);
+        $this->ajaxOutput = $this->generateTiles($triggers);
     }
 
     private function generateTiles(array $triggers): string
@@ -117,15 +132,16 @@ class Wallboard
             : $triggers;
 
         foreach ($slice as $trigger) {
-            if (!is_array($trigger))
+            if (!is_array($trigger)) {
                 continue;
+            }
 
-            $hosts     = $trigger['hosts']     ?? [];
+            $hosts = $trigger['hosts'] ?? [];
             $lastEvent = $trigger['lastEvent'] ?? [];
 
             $isMaint = in_array('1', array_column($hosts, 'maintenance_status'), true);
-            $isAck   = ($lastEvent['acknowledged'] ?? '0') === '1';
-            $color   = ($isMaint || $isAck) ? '' : $this->getSeverityColor((int) $trigger['priority']);
+            $isAck = ($lastEvent['acknowledged'] ?? '0') === '1';
+            $color = ($isMaint || $isAck) ? '' : $this->getSeverityColor((int) $trigger['priority']);
 
             $output .= sprintf('<div class="tile-wide %s shadow"><div class="tile-content">', $color);
             $output .= sprintf(
@@ -143,7 +159,7 @@ class Wallboard
             $output .= '</div></div>';
         }
 
-        return $output . '</div>';
+        return "$output</div>";
     }
 
     private function generateHostgroupMenu(array $hostgroups): string
@@ -161,7 +177,7 @@ class Wallboard
         );
 
         foreach ($hostgroups as $group) {
-            $gid      = (string) ($group['groupid'] ?? '');
+            $gid = (string) ($group['groupid'] ?? '');
             $isActive = in_array($gid, $selectedIds, true);
 
             $newSelection = array_values(array_diff($selectedIds, ['all']));
@@ -170,8 +186,9 @@ class Wallboard
             } else {
                 $newSelection[] = $gid;
             }
-            if (empty($newSelection))
+            if (empty($newSelection)) {
                 $newSelection = ['all'];
+            }
 
             $menu .= sprintf(
                 '<li><a href="%s" %s>%s %s</a></li>',
@@ -182,7 +199,7 @@ class Wallboard
             );
         }
 
-        return $menu . '</ul></li>';
+        return "$menu</ul></li>";
     }
 
     private function generateSeverityMenu(array $severities): string
@@ -209,7 +226,7 @@ class Wallboard
             );
         }
 
-        return $menu . '</ul></li>';
+        return "$menu</ul></li>";
     }
 
     public function generateMenu(array $hostgroups, array $severities): void
@@ -249,7 +266,7 @@ class Wallboard
     {
         if ($this->isAjaxRequest) {
             header('Content-Type: application/json');
-            echo json_encode(['html' => $this->ajaxOutput]);
+            echo json_encode(['html' => $this->ajaxOutput], JSON_THROW_ON_ERROR);
             return;
         }
 
@@ -289,14 +306,16 @@ class Wallboard
 
     private function isLunchTime(): bool
     {
-        if (empty($this->lunchReminders))
+        if (empty($this->lunchReminders)) {
             return false;
+        }
 
         $now = (int) date('Hi');
 
         foreach ($this->lunchReminders as ['start' => $start, 'end' => $end]) {
-            if ($start <= $end ? ($now >= $start && $now <= $end) : ($now >= $start || $now <= $end))
+            if ($start <= $end ? ($now >= $start && $now <= $end) : ($now >= $start || $now <= $end)) {
                 return true;
+            }
         }
 
         return false;

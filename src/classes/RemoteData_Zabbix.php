@@ -1,33 +1,45 @@
 <?php
 
-/**
- * RemoteData_Zabbix
- * Handles all communication with the Zabbix API.
- * Optimized for performance: only fetches essential trigger and event status.
- */
-class RemoteData_Zabbix
+declare(strict_types=1);
+
+namespace App\Classes;
+
+use RuntimeException;
+use function is_array;
+use function sprintf;
+
+readonly class RemoteData_Zabbix
 {
     public function __construct(
-        private readonly string $url,
-        private readonly string $apiToken,
-        private readonly bool   $basicAuth      = false,
-        private readonly string $basicAuthUser  = '',
-        private readonly string $basicAuthPass  = '',
-        private readonly bool   $verifySsl      = true,
-        private readonly int    $connectTimeout = 5,
+        private string $url,
+        #[\SensitiveParameter] private string $apiToken,
+        private bool $basicAuth = false,
+        private string $basicAuthUser = '',
+        #[\SensitiveParameter] private string $basicAuthPass = '',
+        private bool $verifySsl = true,
+        private int $connectTimeout = 5,
     ) {}
 
     public static function fromConfig(array $config): self
     {
-        return new self(
-            url:            $config['URL'],
-            apiToken:       $config['API_TOKEN'],
-            basicAuth:      $config['BASIC_AUTH']      ?? false,
-            basicAuthUser:  $config['BASIC_AUTH_USER'] ?? '',
-            basicAuthPass:  $config['BASIC_AUTH_PASS'] ?? '',
-            verifySsl:      $config['VERIFY_SSL']      ?? true,
-            connectTimeout: $config['CONNECT_TIMEOUT'] ?? 5,
-        );
+        $mapping = [
+            'URL' => 'url',
+            'API_TOKEN' => 'apiToken',
+            'BASIC_AUTH' => 'basicAuth',
+            'BASIC_AUTH_USER' => 'basicAuthUser',
+            'BASIC_AUTH_PASS' => 'basicAuthPass',
+            'VERIFY_SSL' => 'verifySsl',
+            'CONNECT_TIMEOUT' => 'connectTimeout',
+        ];
+
+        $args = [];
+        foreach ($mapping as $configKey => $paramName) {
+            if (isset($config[$configKey])) {
+                $args[$paramName] = $config[$configKey];
+            }
+        }
+
+        return new self(...$args);
     }
 
     public function getHostgroups(array $params): array
@@ -50,49 +62,57 @@ class RemoteData_Zabbix
     {
         $body = json_encode([
             'jsonrpc' => '2.0',
-            'method'  => $method,
-            'params'  => $params,
-            'id'      => 1,
-        ]);
+            'method' => $method,
+            'params' => $params,
+            'id' => 1,
+        ], JSON_THROW_ON_ERROR);
 
-        $data = json_decode((string) $this->curlRequest($body), true);
+        $response = $this->curlRequest($body);
+        $data = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
 
         return match (true) {
             !empty($data['result']) => $data['result'],
-            !empty($data['error'])  => throw new RuntimeException(
-                sprintf('API Error: [%s] %s - %s',
+            !empty($data['error']) => throw new RuntimeException(
+                sprintf(
+                    'API Error: [%s] %s - %s',
                     $data['error']['code'],
                     $data['error']['message'],
                     $data['error']['data'] ?? ''
-                ), 12
+                ),
+                12
             ),
-            default => false,
+            default => [],
         };
     }
 
-    private function curlRequest(string $data): string|false
+    private function curlRequest(string $data): string
     {
         $ch = curl_init($this->url);
 
-        curl_setopt_array($ch, [
+        $options = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => $this->connectTimeout,
-            CURLOPT_CUSTOMREQUEST  => 'POST',
-            CURLOPT_POSTFIELDS     => $data,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => $data,
             CURLOPT_SSL_VERIFYPEER => $this->verifySsl,
-            CURLOPT_HTTPHEADER     => [
+            CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json-rpc',
                 "Authorization: Bearer {$this->apiToken}",
             ],
-        ]);
+        ];
 
         if ($this->basicAuth) {
-            curl_setopt_array($ch, [
-                CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-                CURLOPT_USERPWD  => "{$this->basicAuthUser}:{$this->basicAuthPass}",
-            ]);
+            $options[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
+            $options[CURLOPT_USERPWD] = "{$this->basicAuthUser}:{$this->basicAuthPass}";
         }
 
-        return curl_exec($ch);
+        curl_setopt_array($ch, $options);
+
+        $response = curl_exec($ch);
+        if ($response === false) {
+            $error = curl_error($ch);
+            throw new RuntimeException("cURL Error: $error");
+        }
+        return $response;
     }
 }

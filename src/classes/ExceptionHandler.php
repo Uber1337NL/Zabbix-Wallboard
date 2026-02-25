@@ -2,21 +2,19 @@
 
 declare(strict_types=1);
 
-class ExceptionHandler
+namespace App\Classes;
+
+use Throwable;
+use function defined;
+
+readonly class ExceptionHandler
 {
     private const ERROR_SESSION_RESET = 10;
-    private const ERROR_API_AUTH      = 11;
-    private const ERROR_API_GENERAL   = 12;
-    private const ERROR_UNKNOWN       = 100;
 
-    private string $scriptPath;
-    private array $displayConfig;
-
-    public function __construct(array $config = [])
-    {
-        $this->scriptPath = $config['SCRIPT_PATH'] ?? '/index.php';
-        $this->displayConfig = $config['DISPLAY'] ?? [];
-    }
+    public function __construct(
+        private string $scriptPath = '/index.php',
+        private array $displayConfig = []
+    ) {}
 
     public function error(Throwable $error): void
     {
@@ -41,7 +39,7 @@ class ExceptionHandler
         $wallboard->publish();
 
         if (!defined('PHPUNIT_RUNNING') || !PHPUNIT_RUNNING) {
-            exit;
+            exit(1);
         }
     }
 
@@ -65,6 +63,9 @@ class ExceptionHandler
                 $params['httponly']
             );
         }
-        session_destroy();
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
     }
 }
