@@ -22,7 +22,6 @@ $config = require 'config.php';
 $config['SCRIPT_PATH'] = ($config['REVERSE_PROXY_PATH'] ?? '') . ($_SERVER['SCRIPT_NAME'] ?? '');
 
 $exceptionHandler = new ExceptionHandler($config);
-set_exception_handler([$exceptionHandler, 'error']);
 
 if (!function_exists('validateInput')) {
     function validateInput(string $key, string $type = 'string', mixed $default = null): mixed
