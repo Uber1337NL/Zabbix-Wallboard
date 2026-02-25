@@ -141,7 +141,7 @@ class Wallboard
             $output .= sprintf('<div class="tile-wide %s shadow"><div class="tile-content">', $color);
             $output .= sprintf(
                 '<p class="align-center text-date">%s</p>',
-                date('Y-m-d H:i:s', $trigger['lastchange'] ?? time())
+                date('Y-m-d H:i:s', (int) ($trigger['lastchange'] ?? time()))
             );
             $output .= sprintf('<p class="align-center text-accent">%s</p>', $this->escape($hosts[0]['name'] ?? 'N/A'));
             $output .= sprintf('<p class="align-center text-default">%s</p>', $this->escape($trigger['description'] ?? ''));
