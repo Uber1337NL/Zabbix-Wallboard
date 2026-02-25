@@ -70,7 +70,7 @@ class RemoteData_Zabbix
         $CURL = curl_init($URL);
         $HEADERS = [
             'Content-Type: application/json-rpc',
-            'Authorization: Bearer ' . $this->API_TOKEN
+            "Authorization: Bearer {$this->API_TOKEN}"
         ];
 
         curl_setopt_array($CURL, [
