@@ -7,87 +7,92 @@
  */
 class RemoteData_Zabbix
 {
-    protected string $URL;
-    protected string $API_TOKEN;
-    protected bool $BASIC_AUTH;
-    protected string $BASIC_AUTH_USER;
-    protected string $BASIC_AUTH_PASS;
-    protected bool $VERIFY_SSL;
-    protected int $CONNECT_TIMEOUT;
+    public function __construct(
+        private readonly string $url,
+        private readonly string $apiToken,
+        private readonly bool   $basicAuth      = false,
+        private readonly string $basicAuthUser  = '',
+        private readonly string $basicAuthPass  = '',
+        private readonly bool   $verifySsl      = true,
+        private readonly int    $connectTimeout = 5,
+    ) {}
 
-    public function __construct(array $config)
+    public static function fromConfig(array $config): self
     {
-        $this->URL = $config['URL'];
-        $this->API_TOKEN = $config['API_TOKEN'];
-        $this->BASIC_AUTH = $config['BASIC_AUTH'] ?? false;
-        $this->BASIC_AUTH_USER = $config['BASIC_AUTH_USER'] ?? '';
-        $this->BASIC_AUTH_PASS = $config['BASIC_AUTH_PASS'] ?? '';
-        $this->VERIFY_SSL = $config['VERIFY_SSL'] ?? true;
-        $this->CONNECT_TIMEOUT = $config['CONNECT_TIMEOUT'] ?? 5;
+        return new self(
+            url:            $config['URL'],
+            apiToken:       $config['API_TOKEN'],
+            basicAuth:      $config['BASIC_AUTH']      ?? false,
+            basicAuthUser:  $config['BASIC_AUTH_USER'] ?? '',
+            basicAuthPass:  $config['BASIC_AUTH_PASS'] ?? '',
+            verifySsl:      $config['VERIFY_SSL']      ?? true,
+            connectTimeout: $config['CONNECT_TIMEOUT'] ?? 5,
+        );
     }
 
     public function getHostgroups(array $params): array
     {
-        return $this->api_fetch_array('hostgroup.get', $params);
+        return $this->fetchArray('hostgroup.get', $params);
     }
 
     public function getTriggers(array $params): array
     {
-        return $this->api_fetch_array('trigger.get', $params);
+        return $this->fetchArray('trigger.get', $params);
     }
 
-    private function api_fetch_array(string $METHOD, array $PARAMS): array
+    private function fetchArray(string $method, array $params): array
     {
-        $RESULT = $this->api_query($METHOD, $PARAMS);
-        return is_array($RESULT) ? $RESULT : [];
+        $result = $this->query($method, $params);
+        return is_array($result) ? $result : [];
     }
 
-    private function api_query(string $METHOD, array $PARAMS = []): mixed
+    private function query(string $method, array $params = []): mixed
     {
-        $BODY = json_encode([
+        $body = json_encode([
             'jsonrpc' => '2.0',
-            'method' => $METHOD,
-            'params' => $PARAMS,
-            'id' => 1,
+            'method'  => $method,
+            'params'  => $params,
+            'id'      => 1,
         ]);
 
-        $DATA_JSON = $this->api_curl($this->URL, $BODY);
-        $DATA = json_decode((string) $DATA_JSON, true);
+        $data = json_decode((string) $this->curlRequest($body), true);
 
-        if (!empty($DATA['result'])) {
-            return $DATA['result'];
-        } elseif (!empty($DATA['error'])) {
-            throw new Exception(
-                'API Error: [' . $DATA['error']['code'] . '] ' . $DATA['error']['message'] . ' - ' . ($DATA['error']['data'] ?? ''),
-                12
-            );
-        }
-        return false;
+        return match (true) {
+            !empty($data['result']) => $data['result'],
+            !empty($data['error'])  => throw new RuntimeException(
+                sprintf('API Error: [%s] %s - %s',
+                    $data['error']['code'],
+                    $data['error']['message'],
+                    $data['error']['data'] ?? ''
+                ), 12
+            ),
+            default => false,
+        };
     }
 
-    private function api_curl(string $URL, string $DATA): string|false
+    private function curlRequest(string $data): string|false
     {
-        $CURL = curl_init($URL);
-        $HEADERS = [
-            'Content-Type: application/json-rpc',
-            "Authorization: Bearer {$this->API_TOKEN}"
-        ];
+        $ch = curl_init($this->url);
 
-        curl_setopt_array($CURL, [
+        curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => $this->CONNECT_TIMEOUT,
-            CURLOPT_HTTPHEADER => $HEADERS,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $DATA,
-            CURLOPT_SSL_VERIFYPEER => $this->VERIFY_SSL,
+            CURLOPT_CONNECTTIMEOUT => $this->connectTimeout,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => $data,
+            CURLOPT_SSL_VERIFYPEER => $this->verifySsl,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json-rpc',
+                "Authorization: Bearer {$this->apiToken}",
+            ],
         ]);
 
-        if ($this->BASIC_AUTH) {
-            curl_setopt($CURL, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-            curl_setopt($CURL, CURLOPT_USERPWD, "{$this->BASIC_AUTH_USER}:{$this->BASIC_AUTH_PASS}");
+        if ($this->basicAuth) {
+            curl_setopt_array($ch, [
+                CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+                CURLOPT_USERPWD  => "{$this->basicAuthUser}:{$this->basicAuthPass}",
+            ]);
         }
 
-        $RESULT = curl_exec($CURL);
-        return $RESULT;
+        return curl_exec($ch);
     }
 }
