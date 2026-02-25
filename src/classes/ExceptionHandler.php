@@ -14,12 +14,6 @@ class ExceptionHandler
         private array $displayConfig = []
     ) {}
 
-    public function setConfig(array $config): void
-    {
-        $this->scriptPath = $config['SCRIPT_PATH'] ?? '/index.php';
-        $this->displayConfig = $config['DISPLAY'] ?? [];
-    }
-
     public function error(Throwable $error): void
     {
         error_log(sprintf(
