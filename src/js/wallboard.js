@@ -144,6 +144,7 @@
                 });
                 tiles.find('.text-accent').css('font-size', '6vh');
                 tiles.find('.text-default').css('font-size', '3vh');
+            // todo: count <= 8 and count <= 16
             } else {
                 tiles.css({
                     width: 'calc(33.33% - 20px)',
