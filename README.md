@@ -53,6 +53,7 @@ The code itself is located in the src/ directory. The files in the root director
 - **Code formatting**: Consistent indentation and spacing
 - **Documentation**: Improved PHPDoc comments
 - Changed the minimum PHP requirement to PHP8.2. All older versions are EOL.
+- Dark mode only. Saves on energy a lot when the screen is on 24/7 with no issues.
 
 ### Architecture Changes
 
