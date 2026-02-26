@@ -5,6 +5,7 @@
  * - Dropdowns
  * - Auto-refresh (AJAX)
  * - Responsive scaled grid using ResizeObserver
+ * - Auto-hide mouse cursor after inactivity
  */
 (function ($) {
     'use strict';
@@ -172,6 +173,40 @@
     };
 
     /* ---------------------------------------------------------------------
+     * AUTO HIDE MOUSE CURSOR
+     * ------------------------------------------------------------------- */
+    function initAutoHideCursor() {
+        let mouseTimer = null;
+        const mouseHideDelay = 3000; // ms
+
+        const hideCursor = () => {
+            document.body.style.cursor = 'none';
+        };
+
+        const showCursor = () => {
+            document.body.style.cursor = 'default';
+        };
+
+        // Touch devices: always hide cursor
+        if ('ontouchstart' in window) {
+            hideCursor();
+            return;
+        }
+
+        document.addEventListener('mousemove', () => {
+            showCursor();
+            clearTimeout(mouseTimer);
+            mouseTimer = setTimeout(hideCursor, mouseHideDelay);
+        });
+
+        window.addEventListener('blur', hideCursor);
+        window.addEventListener('focus', showCursor);
+
+        // Start verborgen
+        hideCursor();
+    }    
+
+    /* ---------------------------------------------------------------------
      * INIT
      * ------------------------------------------------------------------- */
     function initGrid() {
@@ -188,6 +223,7 @@
         initDropdowns();
         initAutoRefresh();
         initGrid();
+        initAutoHideCursor(); 
     });
 
     $(window).on('wallboard:content-updated load', function () {
