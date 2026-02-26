@@ -102,5 +102,5 @@ MIT License
 ## Credits
 
 - Author: Uber1337NL
-- Contributors: None, yet
-- Built with: PHP, jQuery, Zabbix API
+- Contributors: Original from @bfdeandrade 8 years ago. Now completely rewritten >92% codechange)
+- Built with: PHP 8.2, jQuery 4.0, Zabbix 6.4+ API
