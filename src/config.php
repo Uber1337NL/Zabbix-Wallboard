@@ -36,6 +36,9 @@ return [
         'monitored' => true,
         'only_true' => true,
         'skipDependent' => true,
+        // NOTE: sortfield/sortorder are NOT sent to the Zabbix API for triggers.
+        // RemoteData_Zabbix::getTriggers() strips them and sorts client-side,
+        // because Zabbix 8.0 + PostgreSQL fails on server-side ORDER BY lastchange.
         'sortfield' => 'lastchange',
         'sortorder' => 'DESC',
     ],
